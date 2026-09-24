@@ -49,7 +49,7 @@ import {
 	isTransientFeedError,
 	type DiscoverResult
 } from '$lib/server/rss/parser';
-import { isRsshubUrl } from '$lib/server/rss/rsshub';
+import { getRsshubBase, isRsshubUrl } from '$lib/server/rss/rsshub';
 import { stripDuplicateImage } from '$lib/server/rss/sanitize';
 import { backfillTruncatedArticles, isFulltextAutoEnabled } from '$lib/server/rss/fulltext';
 import { backfillUnenrichedArticles, isEnrichAutoEnabled } from '$lib/server/enrich/enrich';
@@ -107,16 +107,34 @@ export function isFeedStale(
 	return now - lastFetchedAt.getTime() > STALE_MS;
 }
 
-/** Pure: pin format=rss for RSSHub route URLs so rss-parser gets XML. */
-export function buildFetchUrl(feedLike: { url: string; source?: string | null }): string {
+/**
+ * Pure: pin format=rss for RSSHub route URLs so rss-parser gets XML.
+ * Rows with source='rsshub' are also re-pinned to the *configured* instance:
+ * the stored URL may carry a stale host from another environment (host dev
+ * persists http://localhost:1200/..., containers reach http://rsshub:1200).
+ */
+export function buildFetchUrl(
+	feedLike: { url: string; source?: string | null },
+	rsshubBase: string = getRsshubBase()
+): string {
 	const { url, source } = feedLike;
 	if (source === 'rsshub' || isRsshubUrl(url)) {
 		try {
 			const u = new URL(url);
+			let changed = false;
+			if (source === 'rsshub') {
+				const base = new URL(rsshubBase);
+				if (u.host.toLowerCase() !== base.host.toLowerCase() || u.protocol !== base.protocol) {
+					u.protocol = base.protocol;
+					u.host = base.host;
+					changed = true;
+				}
+			}
 			if (!u.searchParams.has('format')) {
 				u.searchParams.set('format', 'rss');
-				return u.toString();
+				changed = true;
 			}
+			if (changed) return u.toString();
 		} catch {
 			// keep original URL
 		}

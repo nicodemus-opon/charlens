@@ -41,6 +41,24 @@ describe('buildFetchUrl', () => {
 		});
 		expect(out).toContain('format=atom');
 	});
+
+	it('re-pins rsshub feeds to the configured instance host', () => {
+		// Rows persisted by host-side dev carry http://localhost:1200/...;
+		// inside compose networking the instance is http://rsshub:1200.
+		const out = buildFetchUrl(
+			{
+				url: 'http://localhost:1200/youtube/user/@t3dotgg?format=rss&mode=fulltext',
+				source: 'rsshub'
+			},
+			'http://rsshub:1200'
+		);
+		expect(out).toBe('http://rsshub:1200/youtube/user/@t3dotgg?format=rss&mode=fulltext');
+	});
+
+	it('leaves matching-host rsshub urls untouched', () => {
+		const url = 'http://localhost:1200/x/y?format=rss';
+		expect(buildFetchUrl({ url, source: 'rsshub' }, 'http://localhost:1200')).toBe(url);
+	});
 });
 
 describe('isPlaceholderFeed', () => {
