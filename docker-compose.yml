@@ -41,6 +41,10 @@ services:
       POSTGRES_USER: '${POSTGRES_USER:-charlens}'
       POSTGRES_PASSWORD: '${POSTGRES_PASSWORD:-change-me-in-coolify}'
       POSTGRES_DB: '${POSTGRES_DB:-charlens}'
+      # Keep PGDATA in a subdirectory of the mount: fresh named volumes
+      # often contain a `lost+found` entry at the root, which makes
+      # postgres refuse to initialise ("directory exists but is not empty").
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -48,6 +52,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   rsshub:
     image: diygod/rsshub:latest
