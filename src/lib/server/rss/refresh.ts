@@ -15,7 +15,9 @@ import {
 import {
 	buildAffinityMaps,
 	canonicalTitleKey,
+	collapseNearDuplicates,
 	deterministicExploreBoost,
+	DEEP_SHUFFLE_EXPLORATION_MULTIPLIER,
 	idfWeight,
 	interactionWeight,
 	keywordMatchBoost,
@@ -903,9 +905,17 @@ export async function getRecommendedCount(userId: string): Promise<number> {
  */
 export async function getRecommendedArticles(
 	userId: string,
-	opts: { limit?: number; query?: string; feedId?: number; seed?: string | number } = {}
+	opts: {
+		limit?: number;
+		query?: string;
+		feedId?: number;
+		seed?: string | number;
+		/** Shuffle-button remix: amplify the exploration slot beyond the
+		 *  gentle sidebar re-click level. */
+		deep?: boolean;
+	} = {}
 ) {
-	const { limit = 100, query, feedId, seed = '' } = opts;
+	const { limit = 100, query, feedId, seed = '', deep = false } = opts;
 	const trimmedQuery = query?.trim() ?? '';
 	const isSearch = trimmedQuery.length > 0;
 	// Semantic search: embed the query once, then rank the whole recent window
@@ -1065,11 +1075,16 @@ export async function getRecommendedArticles(
 				mode,
 				tagIdf,
 				keywordBoost: isSearch ? keywordMatchBoost(trimmedQuery, r) : 0,
-				// An explicit shuffle seed amplifies the exploration slot so the
-				// reshuffle is visible; without a seed the base weight applies.
+				// An explicit shuffle seed elects a fresh exploration mix. The
+				// sidebar re-click stays gentle (close-call swaps only); the
+				// Shuffle button remixes deeper. Search never explores.
 				explorationBoost:
 					deterministicExploreBoost(userId, r.id, now, isSearch ? '' : seed) *
-					(!isSearch && seed ? SHUFFLE_EXPLORATION_MULTIPLIER : 1)
+					(!isSearch && seed
+						? deep
+							? DEEP_SHUFFLE_EXPLORATION_MULTIPLIER
+							: SHUFFLE_EXPLORATION_MULTIPLIER
+						: 1)
 			}
 		);
 		return {
@@ -1097,7 +1112,23 @@ export async function getRecommendedArticles(
 			)
 			.catch((e) => console.error('recommend score log failed', e));
 	}
-	const orderedIds = rankWithMMR(scored);
+	// Recommendations rank by pure relevance (score order after
+	// near-duplicate collapse). Search keeps MMR diversity, where a varied
+	// result set is appropriate; Recommended must mirror the user's taste.
+	const orderedIds = isSearch
+		? rankWithMMR(scored)
+		: collapseNearDuplicates(
+				[...scored]
+					.sort((a, b) => b.score - a.score)
+					.map((s) => ({
+						id: s.id,
+						feedId: s.feedId,
+						score: s.score,
+						embedding: s.embedding,
+						topics: s.topics,
+						titleKey: s.titleKey
+					}))
+			).map((i) => i.id);
 	const byId = new Map(rows.map((r) => [r.id, r]));
 	return orderedIds
 		.map((id) => byId.get(id))

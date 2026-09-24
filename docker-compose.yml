@@ -86,6 +86,9 @@ services:
       - '${APP_PORT:-7786}:3000'
     environment:
       NODE_ENV: production
+      # See src/lib/server/net.ts: broken-IPv6 networks stall Node's Happy
+      # Eyeballs (news.ycombinator.com ETIMEDOUT while curl works).
+      NODE_OPTIONS: '${NODE_OPTIONS:---no-network-family-autoselection}'
       HOST: '0.0.0.0'
       PORT: '3000'
       # --- database (defaults to the bundled `db` service) ---------------

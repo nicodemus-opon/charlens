@@ -84,6 +84,16 @@ describe('interactionWeight', () => {
 	it('returns 0 for no engagement', () => {
 		expect(interactionWeight({})).toBe(0);
 	});
+
+	it('gives pure auto-reads zero weight so they never shape affinity', () => {
+		// The list auto-marks its first article read on every page load
+		// without the user opening it (openCount 0, no telemetry).
+		expect(interactionWeight({ isRead: true })).toBe(0);
+		expect(interactionWeight({ isRead: true, openCount: 0 })).toBe(0);
+		// Any genuine engagement evidence still counts.
+		expect(interactionWeight({ isRead: true, openCount: 1 })).toBeGreaterThan(0);
+		expect(interactionWeight({ isRead: true, finished: true })).toBeGreaterThan(0);
+	});
 });
 
 describe('saturate', () => {

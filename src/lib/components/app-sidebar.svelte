@@ -133,11 +133,11 @@
 	}
 
 	/**
-	 * Clicking Recommended always reshuffles: the plain href would be
+	 * Clicking Recommended gently refreshes: the plain href would be
 	 * identical when already on ?filter=recommended (a SvelteKit no-op with
 	 * no load re-run), and ranking is daily-deterministic without a seed.
-	 * A fresh `shuffle` param forces both a navigation and a new
-	 * exploration mix; search text never carries into recommendations.
+	 * A fresh `shuffle` param forces both a navigation and a small
+	 * exploration mix; search text and deep-shuffle mode never carry over.
 	 */
 	function goRecommended(e: MouseEvent) {
 		e.preventDefault();
@@ -149,6 +149,7 @@
 		url.searchParams.delete('tag');
 		url.searchParams.delete('q');
 		url.searchParams.delete('article');
+		url.searchParams.delete('deep');
 		url.searchParams.set('shuffle', String(Date.now()));
 		goto(`${url.pathname}?${url.searchParams.toString()}`, { keepFocus: true });
 	}

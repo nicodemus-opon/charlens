@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
+	PARSER_OPTIONS,
 	RSSHUB_PARSE_TIMEOUT_MS,
 	faviconForUrl,
 	isTransientFeedError,
 	parseFeedDate,
 	parseTimeoutFor
 } from './parser';
+
+describe('PARSER_OPTIONS (broken-IPv6 hardening)', () => {
+	it('disables Happy Eyeballs so hosts like news.ycombinator.com connect', () => {
+		// rss-parser forwards requestOptions to http/https.get. Without this,
+		// adds "succeed" but land 0 articles (ETIMEDOUT, kept as transient).
+		expect(PARSER_OPTIONS.requestOptions).toMatchObject({ autoSelectFamily: false });
+	});
+});
 
 describe('parseTimeoutFor (RSSHub cold-start timeout)', () => {
 	it('gives RSSHub instance routes the extended 60s timeout', () => {

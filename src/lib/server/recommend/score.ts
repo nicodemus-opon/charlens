@@ -42,8 +42,8 @@ export interface RecommendCandidate {
 
 export interface ScoreOptions {
 	now?: number;
-	/** Deterministic exploration flag (0/1 normally; >1 when a shuffle seed
-	 *  amplifies the slot via SHUFFLE_EXPLORATION_MULTIPLIER). */
+	/** Deterministic exploration flag (0/1 normally; multiplied by a shuffle
+	 *  multiplier when an explicit seed is present). */
 	explorationBoost?: number;
 	mode?: 'recommend' | 'search';
 	/** Precomputed 0..1 IDF per lowercased tag over the candidate window. */
@@ -59,17 +59,17 @@ export interface ScoredCandidate {
 	components: Record<string, number>;
 }
 
-/** Recommend blend — sums to 1. Exploration is additive on top (see EXPLORATION_WEIGHT).
- *  The read component is deliberately large so just-opened stories sink
- *  visibly below unseen peers instead of lingering on top. */
+/** Recommend blend — sums to 1. Taste signals (semantic/tag/feed) dominate;
+ *  freshness stays strong enough that a fresh stranger can still beat a
+ *  stale favorite (see eval.spec.ts golden), and read demotes opened stories. */
 export const RECOMMEND_WEIGHTS = {
-	semantic: 0.28,
-	tag: 0.2,
+	semantic: 0.32,
+	tag: 0.22,
 	feed: 0.11,
-	freshness: 0.13,
+	freshness: 0.11,
 	author: 0.05,
-	quality: 0.05,
-	read: 0.18
+	quality: 0.04,
+	read: 0.15
 } as const;
 
 /** Search blend — query intent dominates; feed/tag/author affinity ignored. */
@@ -90,12 +90,14 @@ export const ENGAGEMENT_HALF_LIFE_MS = 30 * 86_400_000;
 export const EXPLORATION_WEIGHT = 0.03;
 
 /**
- * Multiplier applied to the exploration slot when an explicit shuffle seed
- * is present (sidebar re-click / Shuffle button). The base +0.03 is too
- * small to visibly move a settled ranking — ×5 (+0.15 for the elected 8%)
- * reshuffles similarly-scored stories while relevance still dominates.
+ * Exploration multipliers for an explicit shuffle seed (sidebar re-click /
+ * Shuffle button). The default is gentle (+0.06 for the elected 8%: only
+ * close-call neighbors swap) so re-clicks feel stable; the Shuffle button
+ * passes deep=true for a full remix (+0.15). Both stay well below the taste
+ * spread so relevance always dominates.
  */
-export const SHUFFLE_EXPLORATION_MULTIPLIER = 5;
+export const SHUFFLE_EXPLORATION_MULTIPLIER = 2;
+export const DEEP_SHUFFLE_EXPLORATION_MULTIPLIER = 5;
 
 /** Cosine similarity at/above which two candidates collapse to one. */
 export const DEDUP_SIM_THRESHOLD = 0.92;
@@ -169,6 +171,11 @@ export function looksBounced(s: {
  * Weight of one article interaction. Dwell/scroll/finish/save scale the
  * reward; a bounce (opened but barely looked at, never finished/saved) is
  * negative so lookalikes get demoted instead of promoted.
+ *
+ * Pure auto-reads (isRead with zero opens and no dwell/scroll/finish/save —
+ * e.g. the list auto-marking its first article on every page load) earn
+ * nothing: the user never chose them, so they must not shape affinity or
+ * the interest model.
  */
 export function interactionWeight(s: EngagementState): number {
 	const opens = Math.min(Math.max(s.openCount ?? 0, 0), 5);
@@ -177,6 +184,8 @@ export function interactionWeight(s: EngagementState): number {
 	const saved = !!s.isSaved;
 	const finished = !!s.finished;
 	const read = !!s.isRead;
+
+	if (opens <= 0 && dwellMin <= 0 && scroll <= 0 && !finished && !saved) return 0;
 
 	if (
 		looksBounced({

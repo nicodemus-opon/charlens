@@ -46,6 +46,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	const query = url.searchParams.get('q') ?? '';
 	const articleId = url.searchParams.get('article');
 	const shuffleSeed = url.searchParams.get('shuffle') ?? '';
+	const deepShuffle = url.searchParams.get('deep') === '1';
 
 	try {
 		if (!articleId && (filter === 'today' || (!feedId && !query))) {
@@ -63,7 +64,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 					feedId: Number.isFinite(feedId) ? feedId : undefined,
 					query,
 					limit: 100,
-					seed: shuffleSeed
+					seed: shuffleSeed,
+					deep: deepShuffle
 				})
 			: await getArticles(user.id, {
 					feedId: Number.isFinite(feedId) ? feedId : undefined,

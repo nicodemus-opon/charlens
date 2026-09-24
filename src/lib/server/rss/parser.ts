@@ -1,11 +1,16 @@
 import Parser from 'rss-parser';
 import { normalizeFeedTags } from '$lib/tags';
+import { IPV4_COMPAT_REQUEST_OPTIONS } from '$lib/server/net';
 import { excerptFrom, pickImage, sanitizeArticleHtml, stripDuplicateImage } from './sanitize';
 import { getRadarCandidates, isRsshubUrl, resolveCandidateUrl } from './rsshub';
 
-const PARSER_OPTIONS = {
+export const PARSER_OPTIONS = {
 	timeout: 10000,
 	headers: { 'User-Agent': 'charlens-rss/0.1 (+mvp)' },
+	// See $lib/server/net: Node's Happy Eyeballs stalls on broken-IPv6
+	// networks (news.ycombinator.com ETIMEDOUT while curl works). rss-parser
+	// forwards requestOptions to http/https.get, so pin DNS-order connects.
+	requestOptions: { ...IPV4_COMPAT_REQUEST_OPTIONS },
 	customFields: {
 		item: [
 			['content:encoded', 'contentEncoded'],

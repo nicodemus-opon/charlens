@@ -1,5 +1,10 @@
 # ---- base: pnpm via corepack ----
-FROM node:22-alpine AS base
+# Debian (glibc), NOT Alpine (musl): onnxruntime-node ships a glibc-linked
+# libonnxruntime.so that needs /lib64/ld-linux-x86-64.so.2 as its dynamic
+# loader. That path does not exist on musl, so every model load fails with
+# ERR_DLOPEN_FAILED ("Error loading shared library ld-linux-x86-64.so.2"),
+# dropping embeddings to keyword-only mode and keyphrase tags to phase-1.
+FROM node:22-slim AS base
 RUN corepack enable
 WORKDIR /app
 
@@ -22,10 +27,14 @@ RUN pnpm build
 # ---- runner: minimal production image ----
 # (prod-deps stage removed: drizzle-kit must run migrations at container
 # start, and pruning dev deps drops the bins it needs. The runtime stays
-# small via the standalone ./build output + alpine base.)
+# small via the standalone ./build output + slim Debian base.)
 FROM base AS runner
 WORKDIR /app
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+	# Process-wide counterpart to src/lib/server/net.ts: disable Node's Happy
+	# Eyeballs so outbound RSS/article fetches use DNS order (IPv4 first)
+	# on networks with broken IPv6 (e.g. news.ycombinator.com ETIMEDOUT).
+	NODE_OPTIONS=--no-network-family-autoselection
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json drizzle.config.ts ./

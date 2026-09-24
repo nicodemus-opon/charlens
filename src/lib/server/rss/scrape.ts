@@ -1,3 +1,4 @@
+import { fetchExternal } from '$lib/server/net';
 import { excerptFrom, sanitizeArticleHtml, stripDuplicateImage } from './sanitize';
 
 export interface ScrapedArticle {
@@ -95,26 +96,20 @@ async function fetchArticleHtml(url: string): Promise<string> {
 		throw new Error('Invalid article URL');
 	}
 	if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('Unsupported protocol');
-	const ctrl = new AbortController();
-	const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
-	try {
-		const res = await fetch(u.toString(), {
-			signal: ctrl.signal,
-			redirect: 'follow',
-			headers: {
-				'User-Agent': 'charlens-rss/0.1 (+fulltext)',
-				Accept: 'text/html,application/xhtml+xml'
-			}
-		});
-		if (!res.ok) throw new Error(`fetch ${res.status}`);
-		const type = res.headers.get('content-type') ?? '';
-		if (type && !/html|xml|text/.test(type)) throw new Error(`unsupported content-type ${type}`);
-		const buf = await res.arrayBuffer();
-		if (buf.byteLength > MAX_HTML_BYTES) throw new Error('article HTML too large');
-		return new TextDecoder('utf-8').decode(buf.slice(0, MAX_HTML_BYTES));
-	} finally {
-		clearTimeout(t);
-	}
+	// Hardened transport (see $lib/server/net): plain fetch stalls with
+	// ETIMEDOUT on broken-IPv6 networks for hosts like news.ycombinator.com.
+	const res = await fetchExternal(u.toString(), {
+		timeoutMs: FETCH_TIMEOUT_MS,
+		headers: {
+			'User-Agent': 'charlens-rss/0.1 (+fulltext)',
+			Accept: 'text/html,application/xhtml+xml'
+		}
+	});
+	if (res.status < 200 || res.status >= 300) throw new Error(`fetch ${res.status}`);
+	const type = res.contentType ?? '';
+	if (type && !/html|xml|text/.test(type)) throw new Error(`unsupported content-type ${type}`);
+	if (res.body.byteLength > MAX_HTML_BYTES) throw new Error('article HTML too large');
+	return new TextDecoder('utf-8').decode(res.body.subarray(0, MAX_HTML_BYTES));
 }
 
 /** Fetch an article link and extract full text + metadata. Sanitized. */

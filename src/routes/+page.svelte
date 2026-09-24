@@ -245,10 +245,11 @@
 	const unreadCount = $derived(data.articles.filter((a) => !a.isRead).length);
 	const isRecommended = $derived(data.filter === 'recommended');
 
-	/** New exploration mix for Recommended: fresh seed forces reload + rerank. */
+	/** Deep exploration remix for Recommended: fresh seed + amplified slot. */
 	function reshuffle() {
 		const url = new URL($page.url);
 		url.searchParams.set('shuffle', String(Date.now()));
+		url.searchParams.set('deep', '1');
 		goto(`${url.pathname}?${url.searchParams.toString()}`, { keepFocus: true });
 	}
 
