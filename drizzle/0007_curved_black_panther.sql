@@ -1,0 +1,1 @@
+ALTER TABLE "article_tag" ADD COLUMN "source" text DEFAULT 'enrich' NOT NULL;

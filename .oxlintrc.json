@@ -1,0 +1,41 @@
+{
+	"jsPlugins": ["@shadcn/lint"],
+	"settings": {
+		"shadcn": {
+			"ui": "$lib/components/ui",
+			"note": "Always use shadcn-svelte components from $lib/components/ui instead of raw HTML. Always use theme colors (bg-primary, text-muted-foreground, etc.) from src/routes/layout.css — never raw palette colors."
+		}
+	},
+	"rules": {
+		"shadcn/no-restyle": [
+			"error",
+			{
+				"allow": ["layout"],
+				"message": {
+					"spacing": "Use a {{component}} size: {{sizes|none defined}}. Use margin here or gap on the parent for space around it.",
+					"default": "Do not restyle {{component}}. Use a {{component}} variant: {{variants|none defined}}. See {{file}}."
+				}
+			}
+		],
+		"shadcn/no-raw-colors": [
+			"error",
+			{
+				"message": "Use a theme color from src/routes/layout.css for \"{{className}}\". Suggestions: {{suggestions}}."
+			}
+		],
+		"shadcn/no-arbitrary-values": "error",
+		"shadcn/no-inline-styles": "error",
+		"shadcn/no-unknown-classes": "error",
+		"shadcn/require-static-classes": "error"
+	},
+	"overrides": [
+		{
+			"files": ["src/lib/components/ui/**"],
+			"rules": {
+				"shadcn/no-restyle": "off",
+				"shadcn/no-arbitrary-values": "off",
+				"shadcn/require-static-classes": "off"
+			}
+		}
+	]
+}

@@ -1,0 +1,26 @@
+- generic [ref=f1e3]:
+  - generic [ref=f1e4]:
+    - heading "Search charlens" [level=2] [ref=f1e5]
+    - generic [ref=f1e6]: Search articles, tags, collections and feeds
+  - main [ref=f1e7]:
+    - generic [ref=f1e10]:
+      - generic [ref=f1e12]:
+        - generic [ref=f1e13]:
+          - heading "Today" [level=2] [ref=f1e14]
+          - paragraph [ref=f1e15]: 0 stories · 0 unread
+        - group "Article layout" [ref=f1e16]:
+          - button "List layout" [pressed] [ref=f1e17]
+          - button "Compact layout" [ref=f1e18]
+          - button "Card layout" [ref=f1e19]
+        - button "Refresh feeds" [ref=f1e21]
+      - navigation "Primary" [ref=f1e29]:
+        - link "Today" [ref=f1e30] [cursor=pointer]:
+          - /url: /?filter=today
+        - link "Read later" [ref=f1e32] [cursor=pointer]:
+          - /url: /?filter=saved
+          - generic [ref=f1e33]: Saved
+        - button "Search" [ref=f1e34]
+        - button "Add content" [ref=f1e36]:
+          - generic [ref=f1e37]: Add
+        - button "Open menu" [ref=f1e38]:
+          - generic [ref=f1e39]: Menu

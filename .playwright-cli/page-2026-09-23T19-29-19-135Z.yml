@@ -1,0 +1,211 @@
+- generic [ref=e2]:
+  - generic [ref=e21]:
+    - generic [ref=e24]:
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - link "charlens logo charlens" [ref=e27] [cursor=pointer]:
+            - /url: /?filter=today
+            - img "charlens logo" [ref=e28]
+            - generic [ref=e29]: charlens
+          - button "Toggle Sidebar" [ref=e30]
+        - button "Add content" [ref=e33]
+      - generic [ref=e34]:
+        - list [ref=e37]:
+          - listitem [ref=e38]:
+            - link "Today" [ref=e39] [cursor=pointer]:
+              - /url: /?filter=today
+            - generic: "5"
+          - listitem [ref=e42]:
+            - link "Read later" [ref=e43] [cursor=pointer]:
+              - /url: /?filter=saved
+          - listitem [ref=e46]:
+            - link "Recommended" [ref=e47] [cursor=pointer]:
+              - /url: /?filter=recommended
+            - generic: "5"
+        - generic [ref=e50]:
+          - generic [ref=e51]: Smart views
+          - list [ref=e53]:
+            - listitem [ref=e54]:
+              - link "Unread Catch-up" [ref=e55] [cursor=pointer]:
+                - /url: /?view=4
+        - generic [ref=e58]:
+          - generic [ref=e59]: Collections
+          - button "Collection options" [ref=e60]
+          - generic [ref=e64]:
+            - generic [ref=e65]:
+              - link "Tech News" [ref=e66] [cursor=pointer]:
+                - /url: /?filter=all&collection=3
+              - button "Toggle collection" [expanded] [ref=e68]
+            - list [ref=e71]:
+              - listitem [ref=e72]:
+                - link "CL Climate Weekly" [ref=e73] [cursor=pointer]:
+                  - /url: /?filter=all&feed=4
+                  - generic [ref=e74]: CL
+                  - generic [ref=e76]: Climate Weekly
+                - generic: "2"
+              - listitem [ref=e77]:
+                - link "TH The Verge — Tech" [ref=e78] [cursor=pointer]:
+                  - /url: /?filter=all&feed=3
+                  - generic [ref=e79]: TH
+                  - generic [ref=e81]: The Verge — Tech
+                - generic: "3"
+      - list [ref=e83]:
+        - listitem [ref=e84]:
+          - button "PT Palette Tester palette-test@example.com" [ref=e85]:
+            - generic [ref=e86]: PT
+            - generic [ref=e88]:
+              - generic [ref=e89]: Palette Tester
+              - generic [ref=e90]: palette-test@example.com
+    - generic [ref=e92]:
+      - heading "Search charlens" [level=2] [ref=e93]
+      - generic [ref=e94]: Search articles, tags, collections and feeds
+    - main [ref=e95]:
+      - generic [ref=e97]:
+        - generic [ref=e98]:
+          - generic [ref=e99]:
+            - group [ref=e100]:
+              - searchbox "Search…" [ref=e101]
+              - group [ref=e102]
+            - group "Article layout" [ref=e104]:
+              - button "List layout" [pressed] [ref=e105]
+              - button "Compact layout" [ref=e106]
+              - button "Card layout" [ref=e107]
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - heading "Today" [level=1] [ref=e110]
+              - paragraph [ref=e111]: 6 stories · 5 unread
+            - button "Refresh feeds" [ref=e113]
+          - generic [ref=e114]:
+            - link "TH The Verge — Tech Today 1 min Apple unveils new AI-powered iPhone features Apple showed off on-device AI models. ai apple unveils features apple" [ref=e115] [cursor=pointer]:
+              - /url: /?article=85
+              - generic [ref=e116]: TH
+              - generic [ref=e118]:
+                - generic [ref=e119]:
+                  - generic [ref=e120]: The Verge — Tech
+                  - generic [aria-hidden] [ref=e121]: ·
+                  - generic [ref=e122]: Today
+                  - generic [ref=e123]: 1 min
+                - paragraph [ref=e125]: Apple unveils new AI-powered iPhone features
+                - paragraph [ref=e126]: Apple showed off on-device AI models.
+                - generic [ref=e127]:
+                  - generic [ref=e128]: ai
+                  - generic [ref=e129]: apple unveils
+                  - generic [ref=e130]: features apple
+            - link "CL Climate Weekly Today 1 min EU passes landmark climate disclosure rules Large firms must report emissions yearly. New climate climate disclosure disclosure rules" [ref=e131] [cursor=pointer]:
+              - /url: /?article=89
+              - generic [ref=e132]: CL
+              - generic [ref=e134]:
+                - generic [ref=e135]:
+                  - generic [ref=e136]: Climate Weekly
+                  - generic [aria-hidden] [ref=e137]: ·
+                  - generic [ref=e138]: Today
+                  - generic [ref=e139]: 1 min
+                - paragraph [ref=e141]: EU passes landmark climate disclosure rules
+                - paragraph [ref=e142]: Large firms must report emissions yearly.
+                - generic [ref=e143]:
+                  - generic [ref=e144]: New
+                  - generic [ref=e145]: climate
+                  - generic [ref=e146]: climate disclosure
+                  - generic [ref=e147]: disclosure rules
+            - link "TH The Verge — Tech Today 1 min Rust 1.85 released with faster compile times The Rust team shipped incremental improvements. New compile times faster compile released faster" [ref=e148] [cursor=pointer]:
+              - /url: /?article=86
+              - generic [ref=e149]: TH
+              - generic [ref=e151]:
+                - generic [ref=e152]:
+                  - generic [ref=e153]: The Verge — Tech
+                  - generic [aria-hidden] [ref=e154]: ·
+                  - generic [ref=e155]: Today
+                  - generic [ref=e156]: 1 min
+                - paragraph [ref=e158]: Rust 1.85 released with faster compile times
+                - paragraph [ref=e159]: The Rust team shipped incremental improvements.
+                - generic [ref=e160]:
+                  - generic [ref=e161]: New
+                  - generic [ref=e162]: compile times
+                  - generic [ref=e163]: faster compile
+                  - generic [ref=e164]: released faster
+            - link "TH The Verge — Tech Yesterday 1 min OpenAI launches GPT-5 with reasoning boost Benchmarks show better multi-step reasoning. New ai gpt reasoning launches gpt" [ref=e165] [cursor=pointer]:
+              - /url: /?article=87
+              - generic [ref=e166]: TH
+              - generic [ref=e168]:
+                - generic [ref=e169]:
+                  - generic [ref=e170]: The Verge — Tech
+                  - generic [aria-hidden] [ref=e171]: ·
+                  - generic [ref=e172]: Yesterday
+                  - generic [ref=e173]: 1 min
+                - paragraph [ref=e175]: OpenAI launches GPT-5 with reasoning boost
+                - paragraph [ref=e176]: Benchmarks show better multi-step reasoning.
+                - generic [ref=e177]:
+                  - generic [ref=e178]: New
+                  - generic [ref=e179]: ai
+                  - generic [ref=e180]: gpt reasoning
+                  - generic [ref=e181]: launches gpt
+            - link "TH The Verge — Tech Sep 21 1 min Svelte 5 runes guide for app developers A tour of $state and $derived. New app developers guide app runes guide" [ref=e182] [cursor=pointer]:
+              - /url: /?article=88
+              - generic [ref=e183]: TH
+              - generic [ref=e185]:
+                - generic [ref=e186]:
+                  - generic [ref=e187]: The Verge — Tech
+                  - generic [aria-hidden] [ref=e188]: ·
+                  - generic [ref=e189]: Sep 21
+                  - generic [ref=e190]: 1 min
+                - paragraph [ref=e192]: Svelte 5 runes guide for app developers
+                - paragraph [ref=e193]: A tour of $state and $derived.
+                - generic [ref=e194]:
+                  - generic [ref=e195]: New
+                  - generic [ref=e196]: app developers
+                  - generic [ref=e197]: guide app
+                  - generic [ref=e198]: runes guide
+            - link "CL Climate Weekly Sep 20 1 min Coral reefs face record ocean heat Reefs are bleaching across the tropics. New climate coral reefs face record" [ref=e199] [cursor=pointer]:
+              - /url: /?article=90
+              - generic [ref=e200]: CL
+              - generic [ref=e202]:
+                - generic [ref=e203]:
+                  - generic [ref=e204]: Climate Weekly
+                  - generic [aria-hidden] [ref=e205]: ·
+                  - generic [ref=e206]: Sep 20
+                  - generic [ref=e207]: 1 min
+                - paragraph [ref=e209]: Coral reefs face record ocean heat
+                - paragraph [ref=e210]: Reefs are bleaching across the tropics.
+                - generic [ref=e211]:
+                  - generic [ref=e212]: New
+                  - generic [ref=e213]: climate
+                  - generic [ref=e214]: coral reefs
+                  - generic [ref=e215]: face record
+        - separator [ref=e216]
+        - generic [ref=e219]:
+          - generic [ref=e220]:
+            - generic [ref=e221]:
+              - generic [ref=e222]: The Verge — Tech
+              - paragraph [ref=e223]: by Jane Doe
+            - generic [ref=e224]:
+              - 'button "Focus mode: hide the list while reading" [pressed] [ref=e225]':
+                - generic [ref=e226]: Focus
+              - button "Save for later" [ref=e228]
+              - button "Mark as read" [ref=e230]
+              - button "Edit tags" [ref=e231]
+              - link "Open original" [ref=e232] [cursor=pointer]:
+                - /url: https://example.com/a1
+          - article [ref=e234]:
+            - heading "Apple unveils new AI-powered iPhone features" [level=1] [ref=e235]
+            - paragraph [ref=e236]: The Verge — Techby Jane Doe · September 23, 2026
+            - generic [ref=e237]:
+              - link "ai" [ref=e238] [cursor=pointer]:
+                - /url: /?filter=all&tag=104
+              - link "apple unveils" [ref=e239] [cursor=pointer]:
+                - /url: /?filter=all&tag=121
+              - link "features apple" [ref=e240] [cursor=pointer]:
+                - /url: /?filter=all&tag=132
+              - link "iphone features" [ref=e241] [cursor=pointer]:
+                - /url: /?filter=all&tag=129
+              - link "powered iphone" [ref=e242] [cursor=pointer]:
+                - /url: /?filter=all&tag=126
+              - link "unveils powered" [ref=e243] [cursor=pointer]:
+                - /url: /?filter=all&tag=124
+            - separator
+            - paragraph [ref=e244]: Apple showed off on-device AI models.
+            - generic [ref=e245]:
+              - button "Load full text" [ref=e247]
+              - paragraph [ref=e248]: This feed only ships an excerpt — fetch the full article from the original site.
+            - link "Read original" [ref=e250] [cursor=pointer]:
+              - /url: https://example.com/a1
+  - generic [ref=e20]: Today · charlens

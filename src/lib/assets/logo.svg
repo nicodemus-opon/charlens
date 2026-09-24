@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <title>charlens logo</title>
+  <circle cx="16" cy="16" r="16" fill="#f8bfd0" />
+  <g fill="none" stroke="#460e2c" stroke-width="2.8" stroke-linecap="round">
+    <circle cx="16" cy="16" r="10.5" />
+    <ellipse cx="16" cy="16" rx="5" ry="10.5" />
+    <line x1="5.5" y1="16" x2="26.5" y2="16" />
+  </g>
+</svg>

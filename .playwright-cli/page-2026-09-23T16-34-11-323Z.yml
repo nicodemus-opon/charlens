@@ -1,0 +1,17 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - img "charlens logo" [ref=e6]
+    - generic [ref=e7]: charlens
+    - paragraph [ref=e8]: Create your account
+  - generic [ref=e10]:
+    - generic [ref=e20]:
+      - generic [ref=e21]: Name
+      - textbox "Name" [ref=e22]
+    - generic [ref=e11]:
+      - generic [ref=e12]: Email
+      - textbox "Email" [ref=e13]
+    - generic [ref=e14]:
+      - generic [ref=e15]: Password
+      - textbox "Password" [ref=e16]
+    - button "Create account" [ref=e23]
+  - button "Already have an account? Sign in" [active] [ref=e24]

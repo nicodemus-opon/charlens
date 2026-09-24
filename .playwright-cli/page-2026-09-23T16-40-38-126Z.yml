@@ -1,0 +1,287 @@
+- generic [ref=f1e2]:
+  - generic [ref=f1e3]:
+    - generic [ref=f1e6]:
+      - generic [ref=f1e7]:
+        - generic [ref=f1e8]:
+          - link "charlens logo charlens" [ref=f1e9] [cursor=pointer]:
+            - /url: /?filter=today
+            - img "charlens logo" [ref=f1e10]
+            - generic [ref=f1e11]: charlens
+          - button "Toggle Sidebar" [ref=f1e12]
+        - button "Add content" [ref=f1e15]
+        - button "Search ⌘K" [ref=f1e17]:
+          - generic [ref=f1e18]: Search
+          - generic: ⌘K
+      - generic [ref=f1e19]:
+        - list [ref=f1e22]:
+          - listitem [ref=f1e23]:
+            - link "Today" [ref=f1e24] [cursor=pointer]:
+              - /url: /?filter=today
+            - generic: "5"
+          - listitem [ref=f1e29]:
+            - link "Read later" [ref=f1e30] [cursor=pointer]:
+              - /url: /?filter=saved
+          - listitem [ref=f1e34]:
+            - link "Recommended" [ref=f1e35] [cursor=pointer]:
+              - /url: /?filter=recommended
+            - generic: "5"
+        - generic [ref=f1e40]:
+          - generic [ref=f1e41]: Smart views
+          - list [ref=f1e43]:
+            - listitem [ref=f1e44]:
+              - link "Unread Catch-up" [ref=f1e45] [cursor=pointer]:
+                - /url: /?view=4
+        - generic [ref=f1e50]:
+          - generic [ref=f1e51]: Collections
+          - button "Collection options" [ref=f1e52]
+          - generic [ref=f1e56]:
+            - generic [ref=f1e57]:
+              - link "Tech News" [ref=f1e58] [cursor=pointer]:
+                - /url: /?filter=all&collection=3
+              - button "Toggle collection" [expanded] [ref=f1e60]
+            - list [ref=f1e64]:
+              - listitem [ref=f1e65]:
+                - link "Climate Weekly Climate Weekly" [ref=f1e66] [cursor=pointer]:
+                  - /url: /?filter=all&feed=4
+                  - img "Climate Weekly" [ref=f1e68]
+                  - generic [ref=f1e69]: Climate Weekly
+                - generic: "2"
+              - listitem [ref=f1e70]:
+                - link "The Verge — Tech The Verge — Tech" [ref=f1e71] [cursor=pointer]:
+                  - /url: /?filter=all&feed=3
+                  - img "The Verge — Tech" [ref=f1e73]
+                  - generic [ref=f1e74]: The Verge — Tech
+                - generic: "3"
+      - list [ref=f1e76]:
+        - listitem [ref=f1e77]:
+          - button "PT Palette Tester palette-test@example.com" [ref=f1e78]:
+            - generic [ref=f1e79]: PT
+            - generic [ref=f1e81]:
+              - generic [ref=f1e82]: Palette Tester
+              - generic [ref=f1e83]: palette-test@example.com
+    - generic [ref=f1e87]:
+      - heading "Search charlens" [level=2] [ref=f1e88]
+      - generic [ref=f1e89]: Search articles, tags, collections and feeds
+    - main [ref=f1e90]:
+      - generic [ref=f1e92]:
+        - generic:
+          - generic [ref=f1e94]:
+            - group [ref=f1e95]:
+              - searchbox "Search…" [ref=f1e96]
+              - group [ref=f1e97]
+            - group "Article layout" [ref=f1e101]:
+              - button "List layout" [pressed] [ref=f1e102]
+              - button "Compact layout" [ref=f1e103]
+              - button "Card layout" [ref=f1e104]
+          - generic [ref=f1e105]:
+            - generic:
+              - heading "Today" [level=1]
+              - paragraph: 6 stories · 5 unread
+            - button "Refresh feeds" [ref=f1e110]
+          - generic:
+            - link "TH The Verge — Tech Today 1 min Apple unveils new AI-powered iPhone features Apple showed off on-device AI models. ai apple unveils features apple" [ref=f1e358] [cursor=pointer]:
+              - /url: /?article=85
+              - generic [ref=f1e113]: TH
+              - generic:
+                - generic:
+                  - generic: The Verge — Tech
+                  - generic [aria-hidden] [ref=f1e118]: ·
+                  - generic [ref=f1e119]: Today
+                  - generic [ref=f1e120]: 1 min
+                - paragraph: Apple unveils new AI-powered iPhone features
+                - paragraph: Apple showed off on-device AI models.
+                - generic:
+                  - generic [ref=f1e126]: ai
+                  - generic [ref=f1e359]: apple unveils
+                  - generic [ref=f1e360]: features apple
+            - link "CL Climate Weekly Today 1 min EU passes landmark climate disclosure rules Large firms must report emissions yearly. New climate climate disclosure disclosure rules" [ref=f1e361] [cursor=pointer]:
+              - /url: /?article=89
+              - generic [ref=f1e128]: CL
+              - generic:
+                - generic:
+                  - generic: Climate Weekly
+                  - generic [aria-hidden] [ref=f1e133]: ·
+                  - generic [ref=f1e134]: Today
+                  - generic [ref=f1e135]: 1 min
+                - paragraph: EU passes landmark climate disclosure rules
+                - paragraph: Large firms must report emissions yearly.
+                - generic:
+                  - generic [ref=f1e140]: New
+                  - generic [ref=f1e141]: climate
+                  - generic [ref=f1e362]: climate disclosure
+                  - generic [ref=f1e363]: disclosure rules
+            - link "TH The Verge — Tech Today 1 min Rust 1.85 released with faster compile times The Rust team shipped incremental improvements. New compile times faster compile released faster" [ref=f1e364] [cursor=pointer]:
+              - /url: /?article=86
+              - generic [ref=f1e143]: TH
+              - generic:
+                - generic:
+                  - generic: The Verge — Tech
+                  - generic [aria-hidden] [ref=f1e148]: ·
+                  - generic [ref=f1e149]: Today
+                  - generic [ref=f1e150]: 1 min
+                - paragraph: Rust 1.85 released with faster compile times
+                - paragraph: The Rust team shipped incremental improvements.
+                - generic:
+                  - generic [ref=f1e155]: New
+                  - generic [ref=f1e365]: compile times
+                  - generic [ref=f1e366]: faster compile
+                  - generic [ref=f1e367]: released faster
+            - link "TH The Verge — Tech Yesterday 1 min OpenAI launches GPT-5 with reasoning boost Benchmarks show better multi-step reasoning. New ai gpt reasoning launches gpt" [ref=f1e368] [cursor=pointer]:
+              - /url: /?article=87
+              - generic [ref=f1e158]: TH
+              - generic:
+                - generic:
+                  - generic: The Verge — Tech
+                  - generic [aria-hidden] [ref=f1e163]: ·
+                  - generic [ref=f1e164]: Yesterday
+                  - generic [ref=f1e165]: 1 min
+                - paragraph: OpenAI launches GPT-5 with reasoning boost
+                - paragraph: Benchmarks show better multi-step reasoning.
+                - generic:
+                  - generic [ref=f1e170]: New
+                  - generic [ref=f1e171]: ai
+                  - generic [ref=f1e369]: gpt reasoning
+                  - generic [ref=f1e370]: launches gpt
+            - link "TH The Verge — Tech Sep 21 1 min Svelte 5 runes guide for app developers A tour of $state and $derived. New app developers guide app runes guide" [ref=f1e371] [cursor=pointer]:
+              - /url: /?article=88
+              - generic [ref=f1e173]: TH
+              - generic:
+                - generic:
+                  - generic: The Verge — Tech
+                  - generic [aria-hidden] [ref=f1e178]: ·
+                  - generic [ref=f1e179]: Sep 21
+                  - generic [ref=f1e180]: 1 min
+                - paragraph: Svelte 5 runes guide for app developers
+                - paragraph: A tour of $state and $derived.
+                - generic:
+                  - generic [ref=f1e185]: New
+                  - generic [ref=f1e372]: app developers
+                  - generic [ref=f1e373]: guide app
+                  - generic [ref=f1e374]: runes guide
+            - link "CL Climate Weekly Sep 20 1 min Coral reefs face record ocean heat Reefs are bleaching across the tropics. New climate coral reefs face record" [ref=f1e375] [cursor=pointer]:
+              - /url: /?article=90
+              - generic [ref=f1e187]: CL
+              - generic:
+                - generic:
+                  - generic: Climate Weekly
+                  - generic [aria-hidden] [ref=f1e192]: ·
+                  - generic [ref=f1e193]: Sep 20
+                  - generic [ref=f1e194]: 1 min
+                - paragraph: Coral reefs face record ocean heat
+                - paragraph: Reefs are bleaching across the tropics.
+                - generic:
+                  - generic [ref=f1e199]: New
+                  - generic [ref=f1e200]: climate
+                  - generic [ref=f1e376]: coral reefs
+                  - generic [ref=f1e377]: face record
+        - separator [ref=f1e201]
+        - generic [ref=f1e580]:
+          - generic [ref=f1e581]:
+            - generic [ref=f1e582]:
+              - heading "Today" [level=2] [ref=f1e583]
+              - paragraph [ref=f1e584]: 6 stories · 5 unread
+            - group [ref=f1e586]:
+              - searchbox "Search…" [ref=f1e587]
+              - group [ref=f1e588]
+            - group "Article layout" [ref=f1e590]:
+              - button "List layout" [pressed] [ref=f1e591]
+              - button "Compact layout" [ref=f1e592]
+              - button "Card layout" [ref=f1e593]
+            - button "Refresh feeds" [ref=f1e595]
+          - generic [ref=f1e597]:
+            - link "TH The Verge — Tech Today 1 min Apple unveils new AI-powered iPhone features Apple showed off on-device AI models. ai apple unveils features apple" [ref=f1e598] [cursor=pointer]:
+              - /url: /?article=85
+              - generic [ref=f1e599]: TH
+              - generic [ref=f1e601]:
+                - generic [ref=f1e602]:
+                  - generic [ref=f1e603]: The Verge — Tech
+                  - generic [aria-hidden] [ref=f1e604]: ·
+                  - generic [ref=f1e605]: Today
+                  - generic [ref=f1e606]: 1 min
+                - paragraph [ref=f1e608]: Apple unveils new AI-powered iPhone features
+                - paragraph [ref=f1e609]: Apple showed off on-device AI models.
+                - generic [ref=f1e610]:
+                  - generic [ref=f1e611]: ai
+                  - generic [ref=f1e612]: apple unveils
+                  - generic [ref=f1e613]: features apple
+            - link "CL Climate Weekly Today 1 min EU passes landmark climate disclosure rules Large firms must report emissions yearly. New climate climate disclosure disclosure rules" [ref=f1e614] [cursor=pointer]:
+              - /url: /?article=89
+              - generic [ref=f1e615]: CL
+              - generic [ref=f1e617]:
+                - generic [ref=f1e618]:
+                  - generic [ref=f1e619]: Climate Weekly
+                  - generic [aria-hidden] [ref=f1e620]: ·
+                  - generic [ref=f1e621]: Today
+                  - generic [ref=f1e622]: 1 min
+                - paragraph [ref=f1e624]: EU passes landmark climate disclosure rules
+                - paragraph [ref=f1e625]: Large firms must report emissions yearly.
+                - generic [ref=f1e626]:
+                  - generic [ref=f1e627]: New
+                  - generic [ref=f1e628]: climate
+                  - generic [ref=f1e629]: climate disclosure
+                  - generic [ref=f1e630]: disclosure rules
+            - link "TH The Verge — Tech Today 1 min Rust 1.85 released with faster compile times The Rust team shipped incremental improvements. New compile times faster compile released faster" [ref=f1e631] [cursor=pointer]:
+              - /url: /?article=86
+              - generic [ref=f1e632]: TH
+              - generic [ref=f1e634]:
+                - generic [ref=f1e635]:
+                  - generic [ref=f1e636]: The Verge — Tech
+                  - generic [aria-hidden] [ref=f1e637]: ·
+                  - generic [ref=f1e638]: Today
+                  - generic [ref=f1e639]: 1 min
+                - paragraph [ref=f1e641]: Rust 1.85 released with faster compile times
+                - paragraph [ref=f1e642]: The Rust team shipped incremental improvements.
+                - generic [ref=f1e643]:
+                  - generic [ref=f1e644]: New
+                  - generic [ref=f1e645]: compile times
+                  - generic [ref=f1e646]: faster compile
+                  - generic [ref=f1e647]: released faster
+            - link "TH The Verge — Tech Yesterday 1 min OpenAI launches GPT-5 with reasoning boost Benchmarks show better multi-step reasoning. New ai gpt reasoning launches gpt" [ref=f1e648] [cursor=pointer]:
+              - /url: /?article=87
+              - generic [ref=f1e649]: TH
+              - generic [ref=f1e651]:
+                - generic [ref=f1e652]:
+                  - generic [ref=f1e653]: The Verge — Tech
+                  - generic [aria-hidden] [ref=f1e654]: ·
+                  - generic [ref=f1e655]: Yesterday
+                  - generic [ref=f1e656]: 1 min
+                - paragraph [ref=f1e658]: OpenAI launches GPT-5 with reasoning boost
+                - paragraph [ref=f1e659]: Benchmarks show better multi-step reasoning.
+                - generic [ref=f1e660]:
+                  - generic [ref=f1e661]: New
+                  - generic [ref=f1e662]: ai
+                  - generic [ref=f1e663]: gpt reasoning
+                  - generic [ref=f1e664]: launches gpt
+            - link "TH The Verge — Tech Sep 21 1 min Svelte 5 runes guide for app developers A tour of $state and $derived. New app developers guide app runes guide" [ref=f1e665] [cursor=pointer]:
+              - /url: /?article=88
+              - generic [ref=f1e666]: TH
+              - generic [ref=f1e668]:
+                - generic [ref=f1e669]:
+                  - generic [ref=f1e670]: The Verge — Tech
+                  - generic [aria-hidden] [ref=f1e671]: ·
+                  - generic [ref=f1e672]: Sep 21
+                  - generic [ref=f1e673]: 1 min
+                - paragraph [ref=f1e675]: Svelte 5 runes guide for app developers
+                - paragraph [ref=f1e676]: A tour of $state and $derived.
+                - generic [ref=f1e677]:
+                  - generic [ref=f1e678]: New
+                  - generic [ref=f1e679]: app developers
+                  - generic [ref=f1e680]: guide app
+                  - generic [ref=f1e681]: runes guide
+            - link "CL Climate Weekly Sep 20 1 min Coral reefs face record ocean heat Reefs are bleaching across the tropics. New climate coral reefs face record" [ref=f1e682] [cursor=pointer]:
+              - /url: /?article=90
+              - generic [ref=f1e683]: CL
+              - generic [ref=f1e685]:
+                - generic [ref=f1e686]:
+                  - generic [ref=f1e687]: Climate Weekly
+                  - generic [aria-hidden] [ref=f1e688]: ·
+                  - generic [ref=f1e689]: Sep 20
+                  - generic [ref=f1e690]: 1 min
+                - paragraph [ref=f1e692]: Coral reefs face record ocean heat
+                - paragraph [ref=f1e693]: Reefs are bleaching across the tropics.
+                - generic [ref=f1e694]:
+                  - generic [ref=f1e695]: New
+                  - generic [ref=f1e696]: climate
+                  - generic [ref=f1e697]: coral reefs
+                  - generic [ref=f1e698]: face record
+  - generic [ref=f1e231]: Today · charlens

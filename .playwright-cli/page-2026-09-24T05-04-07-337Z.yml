@@ -1,0 +1,356 @@
+- generic [ref=f3e2]:
+  - generic [ref=f3e3]:
+    - generic [ref=f3e4]:
+      - heading "Search charlens" [level=2] [ref=f3e5]
+      - generic [ref=f3e6]: Search articles, tags, collections and feeds
+    - main [ref=f3e7]:
+      - generic [ref=f3e10]:
+        - generic [ref=f3e994]:
+          - generic [ref=f3e995]:
+            - generic [ref=f3e996]:
+              - heading "All stories" [level=2] [ref=f3e997]
+              - paragraph [ref=f3e998]: 30 stories · 29 unread
+            - group "Article layout" [ref=f3e999]:
+              - button "List layout" [ref=f3e1000]
+              - button "Compact layout" [ref=f3e1001]
+              - button "Card layout" [active] [pressed] [ref=f3e1002]
+            - button "Refresh feeds" [ref=f3e1004]
+          - generic [ref=f3e1697]:
+            - link "工作 工作动态 - 军队人才网 3 min page page 公示联勤保障部队2025年专业技能类文职人员公开招考第二批拟录用对象名单 >>>>>>>>" [ref=f3e1698] [cursor=pointer]:
+              - /url: /?filter=all&article=1565
+              - generic [ref=f3e1699]:
+                - generic [ref=f3e1700]: 工作
+                - generic [ref=f3e1704]:
+                  - generic [ref=f3e1705]:
+                    - generic [ref=f3e1706]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1707]: 3 min
+                    - generic [ref=f3e1709]: page page
+                  - generic [ref=f3e1710]: 公示联勤保障部队2025年专业技能类文职人员公开招考第二批拟录用对象名单 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 3 min New page page 公示联勤保障部队2026年公开招考文职人员第三批拟录用对象名单 >>>>>>>>" [ref=f3e1711] [cursor=pointer]:
+              - /url: /?filter=all&article=1564
+              - generic [ref=f3e1712]:
+                - generic [ref=f3e1713]: 工作
+                - generic [ref=f3e1717]:
+                  - generic [ref=f3e1718]:
+                    - generic [ref=f3e1719]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1720]: 3 min
+                    - generic [ref=f3e1722]: New
+                    - generic [ref=f3e1723]: page page
+                  - generic [ref=f3e1724]: 公示联勤保障部队2026年公开招考文职人员第三批拟录用对象名单 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 3 min New page page 公示国防科技大学2026年军队文职人员公开招考第二批免笔试直接面试岗位拟录用对象名单 >>>>>>>>" [ref=f3e1725] [cursor=pointer]:
+              - /url: /?filter=all&article=1566
+              - generic [ref=f3e1726]:
+                - generic [ref=f3e1727]: 工作
+                - generic [ref=f3e1731]:
+                  - generic [ref=f3e1732]:
+                    - generic [ref=f3e1733]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1734]: 3 min
+                    - generic [ref=f3e1736]: New
+                    - generic [ref=f3e1737]: page page
+                  - generic [ref=f3e1738]: 公示国防科技大学2026年军队文职人员公开招考第二批免笔试直接面试岗位拟录用对象名单 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New 81rc 2026-2027年度军事科学院直接选拔招录军官公告 >>>>>>>>" [ref=f3e1739] [cursor=pointer]:
+              - /url: /?filter=all&article=1571
+              - generic [ref=f3e1740]:
+                - generic [ref=f3e1741]: 工作
+                - generic [ref=f3e1745]:
+                  - generic [ref=f3e1746]:
+                    - generic [ref=f3e1747]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1748]: 4 min
+                    - generic [ref=f3e1750]: New
+                    - generic [ref=f3e1751]: 81rc
+                  - generic [ref=f3e1752]: 2026-2027年度军事科学院直接选拔招录军官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 5 min New page page 2026-2027年度国防大学直接选拔招录军官公告 >>>>>>>>" [ref=f3e1753] [cursor=pointer]:
+              - /url: /?filter=all&article=1570
+              - generic [ref=f3e1754]:
+                - generic [ref=f3e1755]: 工作
+                - generic [ref=f3e1759]:
+                  - generic [ref=f3e1760]:
+                    - generic [ref=f3e1761]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1762]: 5 min
+                    - generic [ref=f3e1764]: New
+                    - generic [ref=f3e1765]: page page
+                  - generic [ref=f3e1766]: 2026-2027年度国防大学直接选拔招录军官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New 81rc 2026-2027年度国防科技大学直接选拔招录军官公告 >>>>>>>>" [ref=f3e1767] [cursor=pointer]:
+              - /url: /?filter=all&article=1569
+              - generic [ref=f3e1768]:
+                - generic [ref=f3e1769]: 工作
+                - generic [ref=f3e1773]:
+                  - generic [ref=f3e1774]:
+                    - generic [ref=f3e1775]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1776]: 4 min
+                    - generic [ref=f3e1778]: New
+                    - generic [ref=f3e1779]: 81rc
+                  - generic [ref=f3e1780]: 2026-2027年度国防科技大学直接选拔招录军官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 5 min New 81rc 2026-2027年度63650部队直接选拔招录军官公告 >>>>>>>>" [ref=f3e1781] [cursor=pointer]:
+              - /url: /?filter=all&article=1568
+              - generic [ref=f3e1782]:
+                - generic [ref=f3e1783]: 工作
+                - generic [ref=f3e1787]:
+                  - generic [ref=f3e1788]:
+                    - generic [ref=f3e1789]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1790]: 5 min
+                    - generic [ref=f3e1792]: New
+                    - generic [ref=f3e1793]: 81rc
+                  - generic [ref=f3e1794]: 2026-2027年度63650部队直接选拔招录军官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New 81rc 2026-2027年度武警部队直接选拔招录警官公告 >>>>>>>>" [ref=f3e1795] [cursor=pointer]:
+              - /url: /?filter=all&article=1567
+              - generic [ref=f3e1796]:
+                - generic [ref=f3e1797]: 工作
+                - generic [ref=f3e1801]:
+                  - generic [ref=f3e1802]:
+                    - generic [ref=f3e1803]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1804]: 4 min
+                    - generic [ref=f3e1806]: New
+                    - generic [ref=f3e1807]: 81rc
+                  - generic [ref=f3e1808]: 2026-2027年度武警部队直接选拔招录警官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New page page 2026-2027年度网络空间部队直接选拔招录军官公告 >>>>>>>>" [ref=f3e1809] [cursor=pointer]:
+              - /url: /?filter=all&article=1574
+              - generic [ref=f3e1810]:
+                - generic [ref=f3e1811]: 工作
+                - generic [ref=f3e1815]:
+                  - generic [ref=f3e1816]:
+                    - generic [ref=f3e1817]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1818]: 4 min
+                    - generic [ref=f3e1820]: New
+                    - generic [ref=f3e1821]: page page
+                  - generic [ref=f3e1822]: 2026-2027年度网络空间部队直接选拔招录军官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New 81rc 2026-2027年度信息支援部队直接选拔招录军官公告 >>>>>>>>" [ref=f3e1823] [cursor=pointer]:
+              - /url: /?filter=all&article=1573
+              - generic [ref=f3e1824]:
+                - generic [ref=f3e1825]: 工作
+                - generic [ref=f3e1829]:
+                  - generic [ref=f3e1830]:
+                    - generic [ref=f3e1831]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1832]: 4 min
+                    - generic [ref=f3e1834]: New
+                    - generic [ref=f3e1835]: 81rc
+                  - generic [ref=f3e1836]: 2026-2027年度信息支援部队直接选拔招录军官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New page page 2026-2027年度联勤保障部队直接选拔招录军官公告 >>>>>>>>" [ref=f3e1837] [cursor=pointer]:
+              - /url: /?filter=all&article=1572
+              - generic [ref=f3e1838]:
+                - generic [ref=f3e1839]: 工作
+                - generic [ref=f3e1843]:
+                  - generic [ref=f3e1844]:
+                    - generic [ref=f3e1845]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1846]: 4 min
+                    - generic [ref=f3e1848]: New
+                    - generic [ref=f3e1849]: page page
+                  - generic [ref=f3e1850]: 2026-2027年度联勤保障部队直接选拔招录军官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New 81rc 2026-2027年度空军直接选拔招录军官公告 >>>>>>>>" [ref=f3e1851] [cursor=pointer]:
+              - /url: /?filter=all&article=1577
+              - generic [ref=f3e1852]:
+                - generic [ref=f3e1853]: 工作
+                - generic [ref=f3e1857]:
+                  - generic [ref=f3e1858]:
+                    - generic [ref=f3e1859]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1860]: 4 min
+                    - generic [ref=f3e1862]: New
+                    - generic [ref=f3e1863]: 81rc
+                  - generic [ref=f3e1864]: 2026-2027年度空军直接选拔招录军官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New 81rc 2026-2027年度火箭军直接选拔招录军官公告 >>>>>>>>" [ref=f3e1865] [cursor=pointer]:
+              - /url: /?filter=all&article=1576
+              - generic [ref=f3e1866]:
+                - generic [ref=f3e1867]: 工作
+                - generic [ref=f3e1871]:
+                  - generic [ref=f3e1872]:
+                    - generic [ref=f3e1873]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1874]: 4 min
+                    - generic [ref=f3e1876]: New
+                    - generic [ref=f3e1877]: 81rc
+                  - generic [ref=f3e1878]: 2026-2027年度火箭军直接选拔招录军官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New 81rc 2026-2027年度军事航天部队直接选拔招录军官公告 >>>>>>>>" [ref=f3e1879] [cursor=pointer]:
+              - /url: /?filter=all&article=1575
+              - generic [ref=f3e1880]:
+                - generic [ref=f3e1881]: 工作
+                - generic [ref=f3e1885]:
+                  - generic [ref=f3e1886]:
+                    - generic [ref=f3e1887]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1888]: 4 min
+                    - generic [ref=f3e1890]: New
+                    - generic [ref=f3e1891]: 81rc
+                  - generic [ref=f3e1892]: 2026-2027年度军事航天部队直接选拔招录军官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New page page 2026-2027年度陆军直接选拔招录军官公告 >>>>>>>>" [ref=f3e1893] [cursor=pointer]:
+              - /url: /?filter=all&article=1578
+              - generic [ref=f3e1894]:
+                - generic [ref=f3e1895]: 工作
+                - generic [ref=f3e1899]:
+                  - generic [ref=f3e1900]:
+                    - generic [ref=f3e1901]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1902]: 4 min
+                    - generic [ref=f3e1904]: New
+                    - generic [ref=f3e1905]: page page
+                  - generic [ref=f3e1906]: 2026-2027年度陆军直接选拔招录军官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New page page 2026-2027年度海军直接选拔招录军官公告 >>>>>>>>" [ref=f3e1907] [cursor=pointer]:
+              - /url: /?filter=all&article=1579
+              - generic [ref=f3e1908]:
+                - generic [ref=f3e1909]: 工作
+                - generic [ref=f3e1913]:
+                  - generic [ref=f3e1914]:
+                    - generic [ref=f3e1915]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1916]: 4 min
+                    - generic [ref=f3e1918]: New
+                    - generic [ref=f3e1919]: page page
+                  - generic [ref=f3e1920]: 2026-2027年度海军直接选拔招录军官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New 81rc 2026-2027年度军委后勤保障部直接选拔招录军官公告 >>>>>>>>" [ref=f3e1921] [cursor=pointer]:
+              - /url: /?filter=all&article=1580
+              - generic [ref=f3e1922]:
+                - generic [ref=f3e1923]: 工作
+                - generic [ref=f3e1927]:
+                  - generic [ref=f3e1928]:
+                    - generic [ref=f3e1929]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1930]: 4 min
+                    - generic [ref=f3e1932]: New
+                    - generic [ref=f3e1933]: 81rc
+                  - generic [ref=f3e1934]: 2026-2027年度军委后勤保障部直接选拔招录军官公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 3 min New 81rc 2026－2027年度直接选拔招录军（警）官工作全面展开 >>>>>>>>" [ref=f3e1935] [cursor=pointer]:
+              - /url: /?filter=all&article=1581
+              - generic [ref=f3e1936]:
+                - generic [ref=f3e1937]: 工作
+                - generic [ref=f3e1941]:
+                  - generic [ref=f3e1942]:
+                    - generic [ref=f3e1943]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1944]: 3 min
+                    - generic [ref=f3e1946]: New
+                    - generic [ref=f3e1947]: 81rc
+                  - generic [ref=f3e1948]: 2026－2027年度直接选拔招录军（警）官工作全面展开 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New 81rc 联勤保障部队2026年专业技能类文职人员公开招考公告 >>>>>>>>" [ref=f3e1949] [cursor=pointer]:
+              - /url: /?filter=all&article=1582
+              - generic [ref=f3e1950]:
+                - generic [ref=f3e1951]: 工作
+                - generic [ref=f3e1955]:
+                  - generic [ref=f3e1956]:
+                    - generic [ref=f3e1957]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1958]: 4 min
+                    - generic [ref=f3e1960]: New
+                    - generic [ref=f3e1961]: 81rc
+                  - generic [ref=f3e1962]: 联勤保障部队2026年专业技能类文职人员公开招考公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New page page 空军2026年下半年高层次人才引进公告 >>>>>>>>" [ref=f3e1963] [cursor=pointer]:
+              - /url: /?filter=all&article=1583
+              - generic [ref=f3e1964]:
+                - generic [ref=f3e1965]: 工作
+                - generic [ref=f3e1969]:
+                  - generic [ref=f3e1970]:
+                    - generic [ref=f3e1971]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1972]: 4 min
+                    - generic [ref=f3e1974]: New
+                    - generic [ref=f3e1975]: page page
+                  - generic [ref=f3e1976]: 空军2026年下半年高层次人才引进公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 4 min New 81rc 南部战区2026年面向社会公开招考专业技能类文职人员公告 >>>>>>>>" [ref=f3e1977] [cursor=pointer]:
+              - /url: /?filter=all&article=1584
+              - generic [ref=f3e1978]:
+                - generic [ref=f3e1979]: 工作
+                - generic [ref=f3e1983]:
+                  - generic [ref=f3e1984]:
+                    - generic [ref=f3e1985]: 工作动态 - 军队人才网
+                    - generic [ref=f3e1986]: 4 min
+                    - generic [ref=f3e1988]: New
+                    - generic [ref=f3e1989]: 81rc
+                  - generic [ref=f3e1990]: 南部战区2026年面向社会公开招考专业技能类文职人员公告 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 3 min New page page 公布陆军2026年公开招考文职人员第二批免笔试直接参加面试人员名单 >>>>>>>>" [ref=f3e1991] [cursor=pointer]:
+              - /url: /?filter=all&article=1585
+              - generic [ref=f3e1992]:
+                - generic [ref=f3e1993]: 工作
+                - generic [ref=f3e1997]:
+                  - generic [ref=f3e1998]:
+                    - generic [ref=f3e1999]: 工作动态 - 军队人才网
+                    - generic [ref=f3e2000]: 3 min
+                    - generic [ref=f3e2002]: New
+                    - generic [ref=f3e2003]: page page
+                  - generic [ref=f3e2004]: 公布陆军2026年公开招考文职人员第二批免笔试直接参加面试人员名单 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 3 min New page page 公布联勤保障部队2026年文职人员公开招考第二批免笔试直接参加面试人员名单 >>>>>>>>" [ref=f3e2005] [cursor=pointer]:
+              - /url: /?filter=all&article=1586
+              - generic [ref=f3e2006]:
+                - generic [ref=f3e2007]: 工作
+                - generic [ref=f3e2011]:
+                  - generic [ref=f3e2012]:
+                    - generic [ref=f3e2013]: 工作动态 - 军队人才网
+                    - generic [ref=f3e2014]: 3 min
+                    - generic [ref=f3e2016]: New
+                    - generic [ref=f3e2017]: page page
+                  - generic [ref=f3e2018]: 公布联勤保障部队2026年文职人员公开招考第二批免笔试直接参加面试人员名单 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 3 min New page page 公布网络空间部队2026年公开招考文职人员第二批免笔试直接参加面试人员名单 >>>>>>>>" [ref=f3e2019] [cursor=pointer]:
+              - /url: /?filter=all&article=1587
+              - generic [ref=f3e2020]:
+                - generic [ref=f3e2021]: 工作
+                - generic [ref=f3e2025]:
+                  - generic [ref=f3e2026]:
+                    - generic [ref=f3e2027]: 工作动态 - 军队人才网
+                    - generic [ref=f3e2028]: 3 min
+                    - generic [ref=f3e2030]: New
+                    - generic [ref=f3e2031]: page page
+                  - generic [ref=f3e2032]: 公布网络空间部队2026年公开招考文职人员第二批免笔试直接参加面试人员名单 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 3 min New page page 公布海军2026年公开招考文职人员第二批免笔试直接面试人员名单 >>>>>>>>" [ref=f3e2033] [cursor=pointer]:
+              - /url: /?filter=all&article=1588
+              - generic [ref=f3e2034]:
+                - generic [ref=f3e2035]: 工作
+                - generic [ref=f3e2039]:
+                  - generic [ref=f3e2040]:
+                    - generic [ref=f3e2041]: 工作动态 - 军队人才网
+                    - generic [ref=f3e2042]: 3 min
+                    - generic [ref=f3e2044]: New
+                    - generic [ref=f3e2045]: page page
+                  - generic [ref=f3e2046]: 公布海军2026年公开招考文职人员第二批免笔试直接面试人员名单 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 3 min New page page 公示军事科学院2026年文职人员公开招考第二批免笔试直接面试人员名单 >>>>>>>>" [ref=f3e2047] [cursor=pointer]:
+              - /url: /?filter=all&article=1589
+              - generic [ref=f3e2048]:
+                - generic [ref=f3e2049]: 工作
+                - generic [ref=f3e2053]:
+                  - generic [ref=f3e2054]:
+                    - generic [ref=f3e2055]: 工作动态 - 军队人才网
+                    - generic [ref=f3e2056]: 3 min
+                    - generic [ref=f3e2058]: New
+                    - generic [ref=f3e2059]: page page
+                  - generic [ref=f3e2060]: 公示军事科学院2026年文职人员公开招考第二批免笔试直接面试人员名单 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 3 min New page page 公布火箭军2026年文职人员公开招考第二批免笔试直接参加面试人员名单 >>>>>>>>" [ref=f3e2061] [cursor=pointer]:
+              - /url: /?filter=all&article=1590
+              - generic [ref=f3e2062]:
+                - generic [ref=f3e2063]: 工作
+                - generic [ref=f3e2067]:
+                  - generic [ref=f3e2068]:
+                    - generic [ref=f3e2069]: 工作动态 - 军队人才网
+                    - generic [ref=f3e2070]: 3 min
+                    - generic [ref=f3e2072]: New
+                    - generic [ref=f3e2073]: page page
+                  - generic [ref=f3e2074]: 公布火箭军2026年文职人员公开招考第二批免笔试直接参加面试人员名单 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 3 min New page page 公示国防科技大学2026年军队文职人员公开招考第二批免笔试直接面试人员名单 >>>>>>>>" [ref=f3e2075] [cursor=pointer]:
+              - /url: /?filter=all&article=1591
+              - generic [ref=f3e2076]:
+                - generic [ref=f3e2077]: 工作
+                - generic [ref=f3e2081]:
+                  - generic [ref=f3e2082]:
+                    - generic [ref=f3e2083]: 工作动态 - 军队人才网
+                    - generic [ref=f3e2084]: 3 min
+                    - generic [ref=f3e2086]: New
+                    - generic [ref=f3e2087]: page page
+                  - generic [ref=f3e2088]: 公示国防科技大学2026年军队文职人员公开招考第二批免笔试直接面试人员名单 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 3 min New page page 公布军事航天部队2026年文职人员公开招考第二批免笔试直接参加面试人员名单 >>>>>>>>" [ref=f3e2089] [cursor=pointer]:
+              - /url: /?filter=all&article=1592
+              - generic [ref=f3e2090]:
+                - generic [ref=f3e2091]: 工作
+                - generic [ref=f3e2095]:
+                  - generic [ref=f3e2096]:
+                    - generic [ref=f3e2097]: 工作动态 - 军队人才网
+                    - generic [ref=f3e2098]: 3 min
+                    - generic [ref=f3e2100]: New
+                    - generic [ref=f3e2101]: page page
+                  - generic [ref=f3e2102]: 公布军事航天部队2026年文职人员公开招考第二批免笔试直接参加面试人员名单 >>>>>>>>
+            - link "工作 工作动态 - 军队人才网 3 min New page page 公布国防大学2026年面向社会公开招考文职人员第二批免笔试岗位直接参加面试对象名单 >>>>>>>>" [ref=f3e2103] [cursor=pointer]:
+              - /url: /?filter=all&article=1593
+              - generic [ref=f3e2104]:
+                - generic [ref=f3e2105]: 工作
+                - generic [ref=f3e2109]:
+                  - generic [ref=f3e2110]:
+                    - generic [ref=f3e2111]: 工作动态 - 军队人才网
+                    - generic [ref=f3e2112]: 3 min
+                    - generic [ref=f3e2114]: New
+                    - generic [ref=f3e2115]: page page
+                  - generic [ref=f3e2116]: 公布国防大学2026年面向社会公开招考文职人员第二批免笔试岗位直接参加面试对象名单 >>>>>>>>
+        - navigation "Primary" [ref=f3e1480]:
+          - link "Today" [ref=f3e1481] [cursor=pointer]:
+            - /url: /?filter=today
+          - link "Read later" [ref=f3e1482] [cursor=pointer]:
+            - /url: /?filter=saved
+          - button "Search" [ref=f3e1483]
+          - button "Add content" [ref=f3e1484]
+          - button "Open menu" [ref=f3e1485]
+  - generic [ref=f3e503]: All stories · charlens

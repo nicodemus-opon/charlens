@@ -1,0 +1,74 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - heading "Search charlens" [level=2]
+        - generic: Search articles, tags, collections and feeds
+      - main:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - heading "Today" [level=2]
+                    - paragraph: 0 stories · 0 unread
+                  - group "Article layout":
+                    - button "List layout" [pressed]
+                    - button "Compact layout"
+                    - button "Card layout"
+                  - generic:
+                    - button "Refresh feeds"
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: No articles yet
+                        - generic: Add a feed or hit refresh to pull the latest stories.
+              - navigation "Primary":
+                - link "Today":
+                  - /url: /?filter=today
+                - link "Read later":
+                  - /url: /?filter=saved
+                - button "Search"
+                - button "Add content"
+                - button "Open menu"
+  - dialog "Search charlens" [ref=f2e90]:
+    - application [ref=f2e91]:
+      - group [ref=f2e94]:
+        - combobox [expanded] [active] [ref=f2e95]
+        - group [ref=f2e96]
+      - listbox "Suggestions..." [ref=f2e98]:
+        - generic [ref=f2e99]: Go to
+        - group "Go to" [ref=f2e101]:
+          - option "Today What's new" [selected] [ref=f2e103]:
+            - generic [ref=f2e104]: Today
+            - generic [ref=f2e105]: What's new
+          - option "Read later Saved stories" [ref=f2e107]:
+            - generic [ref=f2e108]: Read later
+            - generic [ref=f2e109]: Saved stories
+          - option "Recommended Picked for you" [ref=f2e111]:
+            - generic [ref=f2e112]: Recommended
+            - generic [ref=f2e113]: Picked for you
+          - option "All stories Everything" [ref=f2e115]:
+            - generic [ref=f2e116]: All stories
+            - generic [ref=f2e117]: Everything
+        - generic [ref=f2e119]: Actions
+        - group "Actions" [ref=f2e121]:
+          - option "Add content Feed or RSSHub route" [ref=f2e123]:
+            - generic [ref=f2e124]: Add content
+            - generic [ref=f2e125]: Feed or RSSHub route
+          - option "Refresh feeds Fetch new stories" [ref=f2e127]:
+            - generic [ref=f2e128]: Refresh feeds
+            - generic [ref=f2e129]: Fetch new stories
+      - generic [ref=f2e130]:
+        - generic [ref=f2e131]:
+          - generic: ↑
+          - generic: ↓
+          - text: Navigate
+        - generic [ref=f2e132]:
+          - generic: ↵
+          - text: Open
+        - generic [ref=f2e133]:
+          - generic: Esc
+          - text: Close

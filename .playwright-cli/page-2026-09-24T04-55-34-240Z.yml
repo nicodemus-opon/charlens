@@ -1,0 +1,70 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - heading "Search charlens" [level=2]
+        - generic: Search articles, tags, collections and feeds
+      - main:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - heading "Today" [level=2]
+                    - paragraph: 0 stories · 0 unread
+                  - group "Article layout":
+                    - button "List layout" [pressed]
+                    - button "Compact layout"
+                    - button "Card layout"
+                  - generic:
+                    - button "Refresh feeds"
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: No articles yet
+                        - generic: Add a feed or hit refresh to pull the latest stories.
+              - navigation "Primary":
+                - link "Today":
+                  - /url: /?filter=today
+                - link "Read later":
+                  - /url: /?filter=saved
+                - button "Search"
+                - button "Add content"
+                - button "Open menu"
+  - dialog "Sidebar" [ref=f2e43]:
+    - generic [ref=f2e44]:
+      - heading "Sidebar" [level=2]
+      - generic: Displays the mobile sidebar.
+    - generic [ref=f2e45]:
+      - generic [ref=f2e46]:
+        - generic [ref=f2e47]:
+          - link "charlens logo charlens" [active] [ref=f2e48] [cursor=pointer]:
+            - /url: /?filter=today
+            - img "charlens logo" [ref=f2e49]
+            - generic [ref=f2e50]: charlens
+          - button "Toggle Sidebar" [ref=f2e51]
+        - button "Add content" [ref=f2e54]
+      - generic [ref=f2e55]:
+        - list [ref=f2e58]:
+          - listitem [ref=f2e59]:
+            - link "Today" [ref=f2e60] [cursor=pointer]:
+              - /url: /?filter=today
+          - listitem [ref=f2e63]:
+            - link "Read later" [ref=f2e64] [cursor=pointer]:
+              - /url: /?filter=saved
+          - listitem [ref=f2e67]:
+            - link "Recommended" [ref=f2e68] [cursor=pointer]:
+              - /url: /?filter=recommended
+        - generic [ref=f2e71]:
+          - generic [ref=f2e72]: Collections
+          - button "Collection options" [ref=f2e73]
+          - paragraph [ref=f2e78]: No feeds yet. Add your first feed to get started.
+      - list [ref=f2e80]:
+        - listitem [ref=f2e81]:
+          - button "MT Mobile Tester mobile-test@example.com" [ref=f2e82]:
+            - generic [ref=f2e83]: MT
+            - generic [ref=f2e85]:
+              - generic [ref=f2e86]: Mobile Tester
+              - generic [ref=f2e87]: mobile-test@example.com

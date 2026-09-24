@@ -1,0 +1,52 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - heading "Search charlens" [level=2]
+        - generic: Search articles, tags, collections and feeds
+      - main:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - heading "Today" [level=2]
+                    - paragraph: 0 stories · 0 unread
+                  - group "Article layout":
+                    - button "List layout" [pressed]
+                    - button "Compact layout"
+                    - button "Card layout"
+                  - generic:
+                    - button "Refresh feeds"
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: No articles yet
+                        - generic: Add a feed or hit refresh to pull the latest stories.
+              - navigation "Primary":
+                - link "Today":
+                  - /url: /?filter=today
+                - link "Read later":
+                  - /url: /?filter=saved
+                - button "Search"
+                - button "Add content"
+                - button "Open menu"
+  - dialog [ref=f2e135]:
+    - generic [ref=f2e136]:
+      - heading "Add content" [level=2] [ref=f2e137]
+      - generic [ref=f2e138]: Paste a link — a feed, a site, a channel, anything.
+    - generic [ref=f2e139]:
+      - generic [ref=f2e140]:
+        - textbox "https://example.com" [active] [ref=f2e141]
+        - generic [ref=f2e142]:
+          - generic [ref=f2e143]: Collection
+          - button "Collection" [ref=f2e144]:
+            - generic [ref=f2e145]: General
+          - textbox [aria-hidden] [ref=f2e146]: General
+          - button "New collection…" [ref=f2e147]
+      - generic [ref=f2e148]:
+        - button "Cancel" [ref=f2e149]
+        - button "Follow feed" [disabled]
+    - button "Close" [ref=f2e150]

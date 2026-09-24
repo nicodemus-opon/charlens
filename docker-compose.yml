@@ -1,0 +1,135 @@
+# charlens — self-hosted RSS reader.
+#
+# Local dev:
+#   docker compose up --build            # app + db + rsshub (app on :7786)
+#   docker compose up db rsshub          # infra only, then `pnpm db:migrate && pnpm dev`
+#
+# IMPORTANT: the `pgdata` volume keeps the credentials from its FIRST init.
+# If you pull compose changes that rename POSTGRES_USER/_PASSWORD/_DB, either
+# keep using the old values locally or reset with `docker compose down -v`
+# (deletes local data) and let postgres re-initialize.
+#
+# Coolify (Docker Compose build pack, repo root as base directory):
+#   1. Point it at this file, expose service `app` on its internal port 3000
+#      via your domain (e.g. https://reader.example.com:3000).
+#   2. The `ports:` entries below are for local `docker compose up` only —
+#      Coolify ignores published ports and routes by domain via its proxy.
+#   3. Set env vars in Coolify (never commit secrets):
+#        DATABASE_URL        postgres://charlens:${POSTGRES_PASSWORD:-change-me}@db:5432/charlens
+#        BETTER_AUTH_SECRET  (openssl rand -hex 32)
+#        ORIGIN              https://reader.example.com   (your public URL)
+#      Optional overrides: APP_PORT/POSTGRES_PORT/RSSHUB_PORT (local ports),
+#      AUTH_DISABLE_SIGNUP, RSSHUB_*, FULLTEXT_*, FEED_REFRESH_*, TAG_*.
+#      Missing DATABASE_URL / BETTER_AUTH_SECRET / ORIGIN fail fast with a
+#      clear error in the app log (see docker-entrypoint.sh).
+#   4. Volumes `pgdata` (postgres), `rsshub-data` and `embed-cache` are created
+#      automatically. `embed-cache` persists the ~80MB embedding model
+#      (EMBED_CACHE_DIR=/app/.cache/hf) so redeploys don't re-download it.
+#      It also holds the ~65MB quantized keyphrase model when
+#      TAG_MODEL_ENABLED=1 (convert once via scripts/convert-keyphrase-model.sh).
+
+services:
+  db:
+    image: postgres:16
+    restart: always
+    ports:
+      - '${POSTGRES_PORT:-7056}:5432'
+    environment:
+      POSTGRES_USER: '${POSTGRES_USER:-charlens}'
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD:-change-me-in-coolify}'
+      POSTGRES_DB: '${POSTGRES_DB:-charlens}'
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER:-charlens} -d $${POSTGRES_DB:-charlens}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rsshub:
+    image: diygod/rsshub:latest
+    restart: unless-stopped
+    ports:
+      - '${RSSHUB_PORT:-1200}:1200'
+    environment:
+      NODE_ENV: production
+      CACHE_TYPE: memory
+      CACHE_EXPIRE: 300
+      CACHE_CONTENT_EXPIRE: 3600
+    volumes:
+      - rsshub-data:/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(`http://localhost:1200/healthz`).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"'
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      rsshub:
+        condition: service_started
+    ports:
+      - '${APP_PORT:-7786}:3000'
+    environment:
+      NODE_ENV: production
+      HOST: '0.0.0.0'
+      PORT: '3000'
+      # --- required (set in Coolify; entrypoint fails fast if missing) ---
+      DATABASE_URL: '${DATABASE_URL:-}'
+      BETTER_AUTH_SECRET: '${BETTER_AUTH_SECRET:-}'
+      ORIGIN: '${ORIGIN:-}'
+      # --- sane out-of-the-box defaults (override in Coolify as needed) ---
+      RSSHUB_BASE_URL: '${RSSHUB_BASE_URL:-http://rsshub:1200}'
+      RSSHUB_ENABLED: '${RSSHUB_ENABLED:-1}'
+      RSSHUB_TIMEOUT_MS: '${RSSHUB_TIMEOUT_MS:-15000}'
+      FULLTEXT_AUTO_ENABLED: '${FULLTEXT_AUTO_ENABLED:-1}'
+      FULLTEXT_MAX_PER_RUN: '${FULLTEXT_MAX_PER_RUN:-10}'
+      FULLTEXT_CONCURRENCY: '${FULLTEXT_CONCURRENCY:-3}'
+      FEED_REFRESH_INTERVAL_MIN: '${FEED_REFRESH_INTERVAL_MIN:-15}'
+      FEED_REFRESH_SCHEDULER_ENABLED: '${FEED_REFRESH_SCHEDULER_ENABLED:-1}'
+      ENRICH_AUTO_ENABLED: '${ENRICH_AUTO_ENABLED:-1}'
+      ENRICH_MAX_PER_RUN: '${ENRICH_MAX_PER_RUN:-25}'
+      ENRICH_CONCURRENCY: '${ENRICH_CONCURRENCY:-3}'
+      EMBED_ENABLED: '${EMBED_ENABLED:-1}'
+      EMBED_MODEL: '${EMBED_MODEL:-Xenova/all-MiniLM-L6-v2}'
+      EMBED_CACHE_DIR: '${EMBED_CACHE_DIR:-/app/.cache/hf}'
+      EMBED_BATCH: '${EMBED_BATCH:-16}'
+      EMBED_MAX_PER_RUN: '${EMBED_MAX_PER_RUN:-50}'
+      # Semantic tag rerank on the existing MiniLM embeddings (KeyBERT-style).
+      # 0 disables it: tags stay in raw heuristic order.
+      TAG_RANK_ENABLED: '${TAG_RANK_ENABLED:-1}'
+      # Phase 2: open-vocab keyphrase model (token-classification ONNX), off
+      # by default. Needs a converted ONNX repo — run
+      # scripts/convert-keyphrase-model.sh once, then point TAG_MODEL_NAME at
+      # it. Download lands in the embed-cache volume (EMBED_CACHE_DIR).
+      TAG_MODEL_ENABLED: '${TAG_MODEL_ENABLED:-0}'
+      TAG_MODEL_NAME: '${TAG_MODEL_NAME:-ml6team/keyphrase-extraction-distilbert-inspec}'
+      AUTH_DISABLE_SIGNUP: '${AUTH_DISABLE_SIGNUP:-}'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(`http://localhost:3000/`).then(r=>{if(r.status>=500)process.exit(1)}).catch(()=>process.exit(1))"'
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - embed-cache:/app/.cache/hf
+
+volumes:
+  pgdata:
+  rsshub-data:
+  embed-cache:

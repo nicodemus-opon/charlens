@@ -1,0 +1,74 @@
+- generic [ref=e2]:
+  - generic [ref=e26]:
+    - generic [ref=e29]:
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - link "charlens logo charlens" [ref=e32] [cursor=pointer]:
+            - /url: /?filter=today
+            - img "charlens logo" [ref=e33]
+            - generic [ref=e34]: charlens
+          - button "Toggle Sidebar" [ref=e35]
+        - button "Add content" [ref=e38]
+      - generic [ref=e39]:
+        - list [ref=e42]:
+          - listitem [ref=e43]:
+            - link "Today" [ref=e44] [cursor=pointer]:
+              - /url: /?filter=today
+          - listitem [ref=e47]:
+            - link "Read later" [ref=e48] [cursor=pointer]:
+              - /url: /?filter=saved
+          - listitem [ref=e51]:
+            - link "Recommended" [ref=e52] [cursor=pointer]:
+              - /url: /?filter=recommended
+        - generic [ref=e55]:
+          - generic [ref=e56]: Collections
+          - button "Collection options" [ref=e57]
+          - paragraph [ref=e62]: No feeds yet. Add your first feed to get started.
+      - list [ref=e64]:
+        - listitem [ref=e65]:
+          - button "PT Playwright Test pwtest@example.com" [ref=e66]:
+            - generic [ref=e67]: PT
+            - generic [ref=e69]:
+              - generic [ref=e70]: Playwright Test
+              - generic [ref=e71]: pwtest@example.com
+    - generic [ref=e73]:
+      - heading "Search charlens" [level=2] [ref=e74]
+      - generic [ref=e75]: Search articles, tags, collections and feeds
+    - main [ref=e76]:
+      - generic [ref=e78]:
+        - generic [ref=e79]:
+          - generic [ref=e80]:
+            - group [ref=e81]:
+              - searchbox "Search…" [ref=e82]
+              - group [ref=e83]
+            - group "Article layout" [ref=e85]:
+              - button "List layout" [pressed] [ref=e86]
+              - button "Compact layout" [ref=e87]
+              - button "Card layout" [ref=e88]
+          - generic [ref=e89]:
+            - generic [ref=e90]:
+              - heading "Today" [level=1] [ref=e91]
+              - paragraph [ref=e92]: 0 stories · 0 unread
+            - button "Refresh feeds" [ref=e95]
+          - generic [ref=e98]:
+            - generic [ref=e100]: No articles yet
+            - generic [ref=e101]: Add a feed or hit refresh to pull the latest stories.
+        - separator [ref=e102]
+        - generic [ref=e105]:
+          - generic [ref=e106]:
+            - generic [ref=e107]:
+              - heading "Today" [level=2] [ref=e108]
+              - paragraph [ref=e109]: 0 stories · 0 unread
+            - group [ref=e111]:
+              - searchbox "Search…" [ref=e112]
+              - group [ref=e113]
+            - generic [ref=e115]:
+              - group "Article layout" [ref=e116]:
+                - button "List layout" [pressed] [ref=e117]
+                - button "Compact layout" [ref=e118]
+                - button "Card layout" [ref=e119]
+              - button "Refresh feeds" [ref=e121]
+          - generic [ref=e125]:
+            - generic [ref=e127]: No articles yet
+            - generic [ref=e128]: Add a feed or hit refresh to pull the latest stories.
+  - generic [ref=e20]: Today · charlens

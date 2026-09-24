@@ -1,0 +1,207 @@
+- generic [ref=f3e2]:
+  - generic [ref=f3e3]:
+    - generic [ref=f3e4]:
+      - heading "Search charlens" [level=2] [ref=f3e5]
+      - generic [ref=f3e6]: Search articles, tags, collections and feeds
+    - main [ref=f3e7]:
+      - generic [ref=f3e10]:
+        - generic [ref=f3e994]:
+          - generic [ref=f3e995]:
+            - generic [ref=f3e996]:
+              - heading "All stories" [level=2] [ref=f3e997]
+              - paragraph [ref=f3e998]: 30 stories · 29 unread
+            - group "Article layout" [ref=f3e999]:
+              - button "List layout" [ref=f3e1000]
+              - button "Compact layout" [active] [pressed] [ref=f3e1001]
+              - button "Card layout" [ref=f3e1002]
+            - button "Refresh feeds" [ref=f3e1004]
+          - generic [ref=f3e1486]:
+            - generic [ref=f3e1487]:
+              - button "Save for later" [ref=f3e1489]
+              - link "公示联勤保障部队2025年专业技能类文职人员公开招考第二批拟录用对象名单 >>>>>>>> 3min" [ref=f3e1490] [cursor=pointer]:
+                - /url: /?filter=all&article=1565
+                - generic [ref=f3e1491]: 公示联勤保障部队2025年专业技能类文职人员公开招考第二批拟录用对象名单 >>>>>>>>
+                - generic [ref=f3e1493]: 3min
+            - generic [ref=f3e1494]:
+              - button "Save for later" [ref=f3e1496]
+              - link "公示联勤保障部队2026年公开招考文职人员第三批拟录用对象名单 >>>>>>>> 3min" [ref=f3e1497] [cursor=pointer]:
+                - /url: /?filter=all&article=1564
+                - generic [ref=f3e1498]: 公示联勤保障部队2026年公开招考文职人员第三批拟录用对象名单 >>>>>>>>
+                - generic [ref=f3e1500]: 3min
+            - generic [ref=f3e1501]:
+              - button "Save for later" [ref=f3e1503]
+              - link "公示国防科技大学2026年军队文职人员公开招考第二批免笔试直接面试岗位拟录用对象名单 >>>>>>>> 3min" [ref=f3e1504] [cursor=pointer]:
+                - /url: /?filter=all&article=1566
+                - generic [ref=f3e1505]: 公示国防科技大学2026年军队文职人员公开招考第二批免笔试直接面试岗位拟录用对象名单 >>>>>>>>
+                - generic [ref=f3e1507]: 3min
+            - generic [ref=f3e1508]:
+              - button "Save for later" [ref=f3e1510]
+              - link "2026-2027年度军事科学院直接选拔招录军官公告 >>>>>>>> 4min" [ref=f3e1511] [cursor=pointer]:
+                - /url: /?filter=all&article=1571
+                - generic [ref=f3e1512]: 2026-2027年度军事科学院直接选拔招录军官公告 >>>>>>>>
+                - generic [ref=f3e1514]: 4min
+            - generic [ref=f3e1515]:
+              - button "Save for later" [ref=f3e1517]
+              - link "2026-2027年度国防大学直接选拔招录军官公告 >>>>>>>> 5min" [ref=f3e1518] [cursor=pointer]:
+                - /url: /?filter=all&article=1570
+                - generic [ref=f3e1519]: 2026-2027年度国防大学直接选拔招录军官公告 >>>>>>>>
+                - generic [ref=f3e1521]: 5min
+            - generic [ref=f3e1522]:
+              - button "Save for later" [ref=f3e1524]
+              - link "2026-2027年度国防科技大学直接选拔招录军官公告 >>>>>>>> 4min" [ref=f3e1525] [cursor=pointer]:
+                - /url: /?filter=all&article=1569
+                - generic [ref=f3e1526]: 2026-2027年度国防科技大学直接选拔招录军官公告 >>>>>>>>
+                - generic [ref=f3e1528]: 4min
+            - generic [ref=f3e1529]:
+              - button "Save for later" [ref=f3e1531]
+              - link "2026-2027年度63650部队直接选拔招录军官公告 >>>>>>>> 5min" [ref=f3e1532] [cursor=pointer]:
+                - /url: /?filter=all&article=1568
+                - generic [ref=f3e1533]: 2026-2027年度63650部队直接选拔招录军官公告 >>>>>>>>
+                - generic [ref=f3e1535]: 5min
+            - generic [ref=f3e1536]:
+              - button "Save for later" [ref=f3e1538]
+              - link "2026-2027年度武警部队直接选拔招录警官公告 >>>>>>>> 4min" [ref=f3e1539] [cursor=pointer]:
+                - /url: /?filter=all&article=1567
+                - generic [ref=f3e1540]: 2026-2027年度武警部队直接选拔招录警官公告 >>>>>>>>
+                - generic [ref=f3e1542]: 4min
+            - generic [ref=f3e1543]:
+              - button "Save for later" [ref=f3e1545]
+              - link "2026-2027年度网络空间部队直接选拔招录军官公告 >>>>>>>> 4min" [ref=f3e1546] [cursor=pointer]:
+                - /url: /?filter=all&article=1574
+                - generic [ref=f3e1547]: 2026-2027年度网络空间部队直接选拔招录军官公告 >>>>>>>>
+                - generic [ref=f3e1549]: 4min
+            - generic [ref=f3e1550]:
+              - button "Save for later" [ref=f3e1552]
+              - link "2026-2027年度信息支援部队直接选拔招录军官公告 >>>>>>>> 4min" [ref=f3e1553] [cursor=pointer]:
+                - /url: /?filter=all&article=1573
+                - generic [ref=f3e1554]: 2026-2027年度信息支援部队直接选拔招录军官公告 >>>>>>>>
+                - generic [ref=f3e1556]: 4min
+            - generic [ref=f3e1557]:
+              - button "Save for later" [ref=f3e1559]
+              - link "2026-2027年度联勤保障部队直接选拔招录军官公告 >>>>>>>> 4min" [ref=f3e1560] [cursor=pointer]:
+                - /url: /?filter=all&article=1572
+                - generic [ref=f3e1561]: 2026-2027年度联勤保障部队直接选拔招录军官公告 >>>>>>>>
+                - generic [ref=f3e1563]: 4min
+            - generic [ref=f3e1564]:
+              - button "Save for later" [ref=f3e1566]
+              - link "2026-2027年度空军直接选拔招录军官公告 >>>>>>>> 4min" [ref=f3e1567] [cursor=pointer]:
+                - /url: /?filter=all&article=1577
+                - generic [ref=f3e1568]: 2026-2027年度空军直接选拔招录军官公告 >>>>>>>>
+                - generic [ref=f3e1570]: 4min
+            - generic [ref=f3e1571]:
+              - button "Save for later" [ref=f3e1573]
+              - link "2026-2027年度火箭军直接选拔招录军官公告 >>>>>>>> 4min" [ref=f3e1574] [cursor=pointer]:
+                - /url: /?filter=all&article=1576
+                - generic [ref=f3e1575]: 2026-2027年度火箭军直接选拔招录军官公告 >>>>>>>>
+                - generic [ref=f3e1577]: 4min
+            - generic [ref=f3e1578]:
+              - button "Save for later" [ref=f3e1580]
+              - link "2026-2027年度军事航天部队直接选拔招录军官公告 >>>>>>>> 4min" [ref=f3e1581] [cursor=pointer]:
+                - /url: /?filter=all&article=1575
+                - generic [ref=f3e1582]: 2026-2027年度军事航天部队直接选拔招录军官公告 >>>>>>>>
+                - generic [ref=f3e1584]: 4min
+            - generic [ref=f3e1585]:
+              - button "Save for later" [ref=f3e1587]
+              - link "2026-2027年度陆军直接选拔招录军官公告 >>>>>>>> 4min" [ref=f3e1588] [cursor=pointer]:
+                - /url: /?filter=all&article=1578
+                - generic [ref=f3e1589]: 2026-2027年度陆军直接选拔招录军官公告 >>>>>>>>
+                - generic [ref=f3e1591]: 4min
+            - generic [ref=f3e1592]:
+              - button "Save for later" [ref=f3e1594]
+              - link "2026-2027年度海军直接选拔招录军官公告 >>>>>>>> 4min" [ref=f3e1595] [cursor=pointer]:
+                - /url: /?filter=all&article=1579
+                - generic [ref=f3e1596]: 2026-2027年度海军直接选拔招录军官公告 >>>>>>>>
+                - generic [ref=f3e1598]: 4min
+            - generic [ref=f3e1599]:
+              - button "Save for later" [ref=f3e1601]
+              - link "2026-2027年度军委后勤保障部直接选拔招录军官公告 >>>>>>>> 4min" [ref=f3e1602] [cursor=pointer]:
+                - /url: /?filter=all&article=1580
+                - generic [ref=f3e1603]: 2026-2027年度军委后勤保障部直接选拔招录军官公告 >>>>>>>>
+                - generic [ref=f3e1605]: 4min
+            - generic [ref=f3e1606]:
+              - button "Save for later" [ref=f3e1608]
+              - link "2026－2027年度直接选拔招录军（警）官工作全面展开 >>>>>>>> 3min" [ref=f3e1609] [cursor=pointer]:
+                - /url: /?filter=all&article=1581
+                - generic [ref=f3e1610]: 2026－2027年度直接选拔招录军（警）官工作全面展开 >>>>>>>>
+                - generic [ref=f3e1612]: 3min
+            - generic [ref=f3e1613]:
+              - button "Save for later" [ref=f3e1615]
+              - link "联勤保障部队2026年专业技能类文职人员公开招考公告 >>>>>>>> 4min" [ref=f3e1616] [cursor=pointer]:
+                - /url: /?filter=all&article=1582
+                - generic [ref=f3e1617]: 联勤保障部队2026年专业技能类文职人员公开招考公告 >>>>>>>>
+                - generic [ref=f3e1619]: 4min
+            - generic [ref=f3e1620]:
+              - button "Save for later" [ref=f3e1622]
+              - link "空军2026年下半年高层次人才引进公告 >>>>>>>> 4min" [ref=f3e1623] [cursor=pointer]:
+                - /url: /?filter=all&article=1583
+                - generic [ref=f3e1624]: 空军2026年下半年高层次人才引进公告 >>>>>>>>
+                - generic [ref=f3e1626]: 4min
+            - generic [ref=f3e1627]:
+              - button "Save for later" [ref=f3e1629]
+              - link "南部战区2026年面向社会公开招考专业技能类文职人员公告 >>>>>>>> 4min" [ref=f3e1630] [cursor=pointer]:
+                - /url: /?filter=all&article=1584
+                - generic [ref=f3e1631]: 南部战区2026年面向社会公开招考专业技能类文职人员公告 >>>>>>>>
+                - generic [ref=f3e1633]: 4min
+            - generic [ref=f3e1634]:
+              - button "Save for later" [ref=f3e1636]
+              - link "公布陆军2026年公开招考文职人员第二批免笔试直接参加面试人员名单 >>>>>>>> 3min" [ref=f3e1637] [cursor=pointer]:
+                - /url: /?filter=all&article=1585
+                - generic [ref=f3e1638]: 公布陆军2026年公开招考文职人员第二批免笔试直接参加面试人员名单 >>>>>>>>
+                - generic [ref=f3e1640]: 3min
+            - generic [ref=f3e1641]:
+              - button "Save for later" [ref=f3e1643]
+              - link "公布联勤保障部队2026年文职人员公开招考第二批免笔试直接参加面试人员名单 >>>>>>>> 3min" [ref=f3e1644] [cursor=pointer]:
+                - /url: /?filter=all&article=1586
+                - generic [ref=f3e1645]: 公布联勤保障部队2026年文职人员公开招考第二批免笔试直接参加面试人员名单 >>>>>>>>
+                - generic [ref=f3e1647]: 3min
+            - generic [ref=f3e1648]:
+              - button "Save for later" [ref=f3e1650]
+              - link "公布网络空间部队2026年公开招考文职人员第二批免笔试直接参加面试人员名单 >>>>>>>> 3min" [ref=f3e1651] [cursor=pointer]:
+                - /url: /?filter=all&article=1587
+                - generic [ref=f3e1652]: 公布网络空间部队2026年公开招考文职人员第二批免笔试直接参加面试人员名单 >>>>>>>>
+                - generic [ref=f3e1654]: 3min
+            - generic [ref=f3e1655]:
+              - button "Save for later" [ref=f3e1657]
+              - link "公布海军2026年公开招考文职人员第二批免笔试直接面试人员名单 >>>>>>>> 3min" [ref=f3e1658] [cursor=pointer]:
+                - /url: /?filter=all&article=1588
+                - generic [ref=f3e1659]: 公布海军2026年公开招考文职人员第二批免笔试直接面试人员名单 >>>>>>>>
+                - generic [ref=f3e1661]: 3min
+            - generic [ref=f3e1662]:
+              - button "Save for later" [ref=f3e1664]
+              - link "公示军事科学院2026年文职人员公开招考第二批免笔试直接面试人员名单 >>>>>>>> 3min" [ref=f3e1665] [cursor=pointer]:
+                - /url: /?filter=all&article=1589
+                - generic [ref=f3e1666]: 公示军事科学院2026年文职人员公开招考第二批免笔试直接面试人员名单 >>>>>>>>
+                - generic [ref=f3e1668]: 3min
+            - generic [ref=f3e1669]:
+              - button "Save for later" [ref=f3e1671]
+              - link "公布火箭军2026年文职人员公开招考第二批免笔试直接参加面试人员名单 >>>>>>>> 3min" [ref=f3e1672] [cursor=pointer]:
+                - /url: /?filter=all&article=1590
+                - generic [ref=f3e1673]: 公布火箭军2026年文职人员公开招考第二批免笔试直接参加面试人员名单 >>>>>>>>
+                - generic [ref=f3e1675]: 3min
+            - generic [ref=f3e1676]:
+              - button "Save for later" [ref=f3e1678]
+              - link "公示国防科技大学2026年军队文职人员公开招考第二批免笔试直接面试人员名单 >>>>>>>> 3min" [ref=f3e1679] [cursor=pointer]:
+                - /url: /?filter=all&article=1591
+                - generic [ref=f3e1680]: 公示国防科技大学2026年军队文职人员公开招考第二批免笔试直接面试人员名单 >>>>>>>>
+                - generic [ref=f3e1682]: 3min
+            - generic [ref=f3e1683]:
+              - button "Save for later" [ref=f3e1685]
+              - link "公布军事航天部队2026年文职人员公开招考第二批免笔试直接参加面试人员名单 >>>>>>>> 3min" [ref=f3e1686] [cursor=pointer]:
+                - /url: /?filter=all&article=1592
+                - generic [ref=f3e1687]: 公布军事航天部队2026年文职人员公开招考第二批免笔试直接参加面试人员名单 >>>>>>>>
+                - generic [ref=f3e1689]: 3min
+            - generic [ref=f3e1690]:
+              - button "Save for later" [ref=f3e1692]
+              - link "公布国防大学2026年面向社会公开招考文职人员第二批免笔试岗位直接参加面试对象名单 >>>>>>>> 3min" [ref=f3e1693] [cursor=pointer]:
+                - /url: /?filter=all&article=1593
+                - generic [ref=f3e1694]: 公布国防大学2026年面向社会公开招考文职人员第二批免笔试岗位直接参加面试对象名单 >>>>>>>>
+                - generic [ref=f3e1696]: 3min
+        - navigation "Primary" [ref=f3e1480]:
+          - link "Today" [ref=f3e1481] [cursor=pointer]:
+            - /url: /?filter=today
+          - link "Read later" [ref=f3e1482] [cursor=pointer]:
+            - /url: /?filter=saved
+          - button "Search" [ref=f3e1483]
+          - button "Add content" [ref=f3e1484]
+          - button "Open menu" [ref=f3e1485]
+  - generic [ref=f3e503]: All stories · charlens

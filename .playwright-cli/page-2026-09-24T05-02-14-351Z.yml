@@ -1,0 +1,514 @@
+- generic:
+  - generic:
+    - generic:
+      - generic:
+        - heading "Search charlens" [level=2]
+        - generic: Search articles, tags, collections and feeds
+      - main:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - button "Close article and show list"
+                    - generic: 工作动态 - 军队人才网
+                  - generic:
+                    - 'button "Focus mode: hide the list while reading" [pressed]'
+                    - button "Article actions" [expanded]
+                - generic:
+                  - article:
+                    - heading "公示联勤保障部队2025年专业技能类文职人员公开招考第二批拟录用对象名单 >>>>>>>>" [level=1]
+                    - paragraph: 工作动态 - 军队人才网by 联勤保障部队 · September 20, 2026
+                    - generic:
+                      - link "page page":
+                        - /url: /?filter=all&tag=417
+                    - separator
+                    - generic:
+                      - generic:
+                        - paragraph: 作者：联勤保障部队来源：军队人才网发布时间：2026-09-20 15:44:42
+                        - generic:
+                          - paragraph
+                      - separator
+                      - heading "Page 2" [level=4]
+                      - generic:
+                        - generic:
+                          - generic:
+                            - heading ">>" [level=2]:
+                              - generic:
+                                - link ">>":
+                                  - /url: http://81rc.81.cn/sy/yqlj/index.html
+                            - generic:
+                              - generic:
+                                - link:
+                                  - /url: http://www.mod.gov.cn/
+                              - generic:
+                                - link:
+                                  - /url: http://www.81.cn/
+                              - generic:
+                                - link:
+                                  - /url: http://www.cpta.com.cn/
+                              - generic:
+                                - link:
+                                  - /url: https://www.21wecan.com/
+                              - generic:
+                                - link:
+                                  - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 3" [level=4]
+                      - generic:
+                        - generic:
+                          - generic:
+                            - heading ">>" [level=2]:
+                              - generic:
+                                - link ">>":
+                                  - /url: http://81rc.81.cn/sy/yqlj/index.html
+                            - generic:
+                              - generic:
+                                - link:
+                                  - /url: http://www.mod.gov.cn/
+                              - generic:
+                                - link:
+                                  - /url: http://www.81.cn/
+                              - generic:
+                                - link:
+                                  - /url: http://www.cpta.com.cn/
+                              - generic:
+                                - link:
+                                  - /url: https://www.21wecan.com/
+                              - generic:
+                                - link:
+                                  - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 4" [level=4]
+                      - generic:
+                        - generic:
+                          - generic:
+                            - heading ">>" [level=2]:
+                              - generic:
+                                - link ">>":
+                                  - /url: http://81rc.81.cn/sy/yqlj/index.html
+                            - generic:
+                              - generic:
+                                - link:
+                                  - /url: http://www.mod.gov.cn/
+                              - generic:
+                                - link:
+                                  - /url: http://www.81.cn/
+                              - generic:
+                                - link:
+                                  - /url: http://www.cpta.com.cn/
+                              - generic:
+                                - link:
+                                  - /url: https://www.21wecan.com/
+                              - generic:
+                                - link:
+                                  - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 5" [level=4]
+                      - generic:
+                        - generic:
+                          - generic:
+                            - heading ">>" [level=2]:
+                              - generic:
+                                - link ">>":
+                                  - /url: http://81rc.81.cn/sy/yqlj/index.html
+                            - generic:
+                              - generic:
+                                - link:
+                                  - /url: http://www.mod.gov.cn/
+                              - generic:
+                                - link:
+                                  - /url: http://www.81.cn/
+                              - generic:
+                                - link:
+                                  - /url: http://www.cpta.com.cn/
+                              - generic:
+                                - link:
+                                  - /url: https://www.21wecan.com/
+                              - generic:
+                                - link:
+                                  - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 6" [level=4]
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - list:
+                                - link "关于开展2018年博士后科研工作站新设站申报工作的通知":
+                                  - /url: http://81rc.81.cn/bsh/tzgg_210247/9357333.html
+                                  - listitem: 关于开展2018年博士后科研工作站新设站申报工作的通知
+                              - generic:
+                                - link:
+                                  - /url: http://81rc.81.cn/bsh/tzgg_210247/index.html
+                          - list:
+                            - listitem:
+                              - link:
+                                - /url: http://81rc.81.cn/bsh/ywbd_210231/index.html
+                            - listitem:
+                              - link:
+                                - /url: http://81rc.81.cn/bsh/ksys_210243/index.html
+                            - listitem:
+                              - link:
+                                - /url: http://81rc.81.cn/bsh/zxdc/index.html
+                        - generic:
+                          - heading ">>" [level=2]:
+                            - generic:
+                              - link ">>":
+                                - /url: http://81rc.81.cn/sy/yqlj/index.html
+                          - generic:
+                            - generic:
+                              - link:
+                                - /url: http://www.mod.gov.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.81.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.cpta.com.cn/
+                            - generic:
+                              - link:
+                                - /url: https://www.21wecan.com/
+                            - generic:
+                              - link:
+                                - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 7" [level=4]
+                      - generic:
+                        - generic:
+                          - heading ">>" [level=2]:
+                            - generic:
+                              - link ">>":
+                                - /url: http://81rc.81.cn/sy/yqlj/index.html
+                          - generic:
+                            - generic:
+                              - link:
+                                - /url: http://www.mod.gov.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.81.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.cpta.com.cn/
+                            - generic:
+                              - link:
+                                - /url: https://www.21wecan.com/
+                            - generic:
+                              - link:
+                                - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 8" [level=4]
+                      - generic:
+                        - generic:
+                          - generic:
+                            - list:
+                              - listitem:
+                                - text: 2018-04-10 14:41
+                                - link "关于开展2018年博士后科研工作站新设站申报工作的通知":
+                                  - /url: http://81rc.81.cn/bsh/tzgg_210247/9357333.html
+                        - generic:
+                          - heading ">>" [level=2]:
+                            - generic:
+                              - link ">>":
+                                - /url: http://81rc.81.cn/sy/yqlj/index.html
+                          - generic:
+                            - generic:
+                              - link:
+                                - /url: http://www.mod.gov.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.81.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.cpta.com.cn/
+                            - generic:
+                              - link:
+                                - /url: https://www.21wecan.com/
+                            - generic:
+                              - link:
+                                - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 9" [level=4]
+                      - generic:
+                        - generic:
+                          - heading ">>" [level=2]:
+                            - generic:
+                              - link ">>":
+                                - /url: http://81rc.81.cn/sy/yqlj/index.html
+                          - generic:
+                            - generic:
+                              - link:
+                                - /url: http://www.mod.gov.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.81.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.cpta.com.cn/
+                            - generic:
+                              - link:
+                                - /url: https://www.21wecan.com/
+                            - generic:
+                              - link:
+                                - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 10" [level=4]
+                      - generic:
+                        - generic:
+                          - heading ">>" [level=2]:
+                            - generic:
+                              - link ">>":
+                                - /url: http://81rc.81.cn/sy/yqlj/index.html
+                          - generic:
+                            - generic:
+                              - link:
+                                - /url: http://www.mod.gov.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.81.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.cpta.com.cn/
+                            - generic:
+                              - link:
+                                - /url: https://www.21wecan.com/
+                            - generic:
+                              - link:
+                                - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 11" [level=4]
+                      - generic:
+                        - generic:
+                          - heading ">>" [level=2]:
+                            - generic:
+                              - link ">>":
+                                - /url: http://81rc.81.cn/sy/yqlj/index.html
+                          - generic:
+                            - generic:
+                              - link:
+                                - /url: http://www.mod.gov.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.81.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.cpta.com.cn/
+                            - generic:
+                              - link:
+                                - /url: https://www.21wecan.com/
+                            - generic:
+                              - link:
+                                - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 12" [level=4]
+                      - generic:
+                        - generic:
+                          - heading ">>" [level=2]:
+                            - generic:
+                              - link ">>":
+                                - /url: http://81rc.81.cn/sy/yqlj/index.html
+                          - generic:
+                            - generic:
+                              - link:
+                                - /url: http://www.mod.gov.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.81.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.cpta.com.cn/
+                            - generic:
+                              - link:
+                                - /url: https://www.21wecan.com/
+                            - generic:
+                              - link:
+                                - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 13" [level=4]
+                      - generic:
+                        - generic:
+                          - heading ">>" [level=2]:
+                            - generic:
+                              - link ">>":
+                                - /url: http://81rc.81.cn/sy/yqlj/index.html
+                          - generic:
+                            - generic:
+                              - link:
+                                - /url: http://www.mod.gov.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.81.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.cpta.com.cn/
+                            - generic:
+                              - link:
+                                - /url: https://www.21wecan.com/
+                            - generic:
+                              - link:
+                                - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 14" [level=4]
+                      - generic:
+                        - generic:
+                          - heading ">>" [level=2]:
+                            - generic:
+                              - link ">>":
+                                - /url: http://81rc.81.cn/sy/yqlj/index.html
+                          - generic:
+                            - generic:
+                              - link:
+                                - /url: http://www.mod.gov.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.81.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.cpta.com.cn/
+                            - generic:
+                              - link:
+                                - /url: https://www.21wecan.com/
+                            - generic:
+                              - link:
+                                - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 15" [level=4]
+                      - generic:
+                        - generic:
+                          - heading ">>" [level=2]:
+                            - generic:
+                              - link ">>":
+                                - /url: http://81rc.81.cn/sy/yqlj/index.html
+                          - generic:
+                            - generic:
+                              - link:
+                                - /url: http://www.mod.gov.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.81.cn/
+                            - generic:
+                              - link:
+                                - /url: http://www.cpta.com.cn/
+                            - generic:
+                              - link:
+                                - /url: https://www.21wecan.com/
+                            - generic:
+                              - link:
+                                - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 16" [level=4]
+                      - separator
+                      - heading "Page 17" [level=4]
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - paragraph:
+                                    - text: 作者：曲忠刚 陈俊峰来源：
+                                    - generic:
+                                      - link "中国军网":
+                                        - /url: ../../../
+                                    - text: 发布时间：2022-04-12 15:54:16
+                                  - generic:
+                                    - paragraph: 单兵战术场地，随着一声令下，参赛人员迅速卧倒，匍匐通过铁丝网，扬起阵阵黄沙；射击训练场地，指挥员一声令下，参赛选手屏气凝神，清脆的枪声响彻靶场……3月底，晋城市民兵综合训练基地，一场文职人员军事素质考核比武正如火如荼展开。
+                                    - paragraph: “识图用图、自动步枪操作、战术基础动作等8个课目连贯组织实施，感觉好像上了战场一样！”刚刚走下比武场，沁水县人武部政工科文职干事牛浩然擦了擦额头的汗水，感慨地说。
+                                    - paragraph: 年初以来，晋城军分区党委坚决贯彻落实习主席开训动员令要求，始终把军事训练作为党委第一要务、主官第一责任、官兵第一能力，严格按照军事训练大纲要求和标准，重点突出指挥技能、基础体能等内容，组织全区文职人员开展为期一个月的强化集训，并确立“以赛促训、实训实练”的思路，将群众性比武竞赛作为提高训练水平的重要举措。比武场上，来自6个县（市、区）人武部的33名文职人员同台竞技，展开激烈角逐。
+                                    - paragraph: “仗怎么打，兵就怎么练。我们这次集训紧紧围‘五个基本’，突出学理论、练体能、强技能，就是要努力提升文职人员与本职岗位相匹配的军事素养，切实练就与职责使命相适应的过硬本领。”军分区战备建设处参谋程然然向笔者介绍。
+                                    - paragraph: “只有熟练掌握手中武器装备，把军事技能练精练强，才能拿到未来战场上的‘入场券’。”来自阳城县人武部的李江峰，去年刚刚走出“象牙塔”成为文职方阵中的一员，这次集训中他凭借轻武器射击、识图用图两项第一，以及军事理论、战术基础动作两项第二的成绩，在众多选手中脱颖而出。
+                                    - paragraph: 经过集训严格砺练，所有参训人员都将成为“火种”，把不畏艰苦、敢打敢拼的集训队精神运用到日常工作中。“这次集训不是为了示范作业，而是要示教作业，让这批文职人员成为点燃练兵备战热情的‘星星之火’。”军分区战备建设处处长曲忠刚说。
+                                    - paragraph: 比武结束后，晋城军分区第一时间召开复盘检讨会，认真剖析集训和比武中暴露出的问题短板，制定对策措施，强化练兵实效，助力全区官兵练兵备战水平再上新台阶。
+                          - generic:
+                            - heading ">>" [level=2]:
+                              - generic:
+                                - link ">>":
+                                  - /url: http://81rc.81.cn/sy/yqlj/index.html
+                            - generic:
+                              - generic:
+                                - link:
+                                  - /url: http://www.mod.gov.cn/
+                              - generic:
+                                - link:
+                                  - /url: http://www.81.cn/
+                              - generic:
+                                - link:
+                                  - /url: http://www.cpta.com.cn/
+                              - generic:
+                                - link:
+                                  - /url: https://www.21wecan.com/
+                              - generic:
+                                - link:
+                                  - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 18" [level=4]
+                      - generic:
+                        - generic:
+                          - generic:
+                            - generic:
+                              - generic:
+                                - generic:
+                                  - paragraph:
+                                    - text: 作者：厉佩逾来源：
+                                    - generic:
+                                      - link "解放军报客户端":
+                                        - /url: ../../../
+                                    - text: 发布时间：2019-07-10 16:20:18
+                                  - generic:
+                                    - text: 浙江省军区公开招考文职人员面试现场。
+                                    - paragraph: 7月8至10日，浙江省军区依托浙江工商大学人民武装学院，严密组织面向社会公开招考文职人员面试工作。前期，经军队招考文职人员统一考试，498名考生笔试入围，经资格审查、体格检查等层层把关，共299名对象入围参加面试，涉及医疗、护理、工程、会计以及人武部、干休所管理等120多个岗位。
+                                    - paragraph: 此次招考文职人员工作事关军队建设长远发展和人才资源队伍优化，社会关注度高、工作敏感性强，延揽人才意义深远。省军区党委高度重视，主要领导亲自审定工作方案，从各级和驻地体系医院遴选责任心强、公道正派、专业素养好的高中级专业技术专家和文职人员管理干部担任面试考官，全面考察报考人员求职动机、适岗能力和专业素质。
+                                    - paragraph:
+                                      - strong: 考前考务培训：严阵以待 精心筹划
+                                    - paragraph: 为确保面试全程严谨规范、公开透明，7月7日，省军区严密组织考务人员培训会和考官碰头会，明确抽签抽题流程、演练计时计分方法、模拟应考应答场景、安排外围场地警戒。
+                                    - paragraph: 在模拟考场过程中，考官及考务人员认真听取讲解员的流程指导，积极提出疑问，现场讨论热烈，灵活改进方法，为面试工作顺利展开做好各项准备。
+                                    - paragraph: 笔者还注意到，在大厅的投诉受理处摆放着廉政监督卡，卡片上列有详细的监督举报方式。
+                                    - paragraph:
+                                      - strong: 直击面试现场：严肃认真 井然有序
+                                    - paragraph: 此次面试主要采取现场答辩、情况处置和实际操作等方式进行。考生通过现场资格审核，在待考室抽签确定面试顺序，随机抽取考题，以现场演示的方式进行情况处置，经考核组综合评定后现场公布面试成绩；考场分别设置候考室、面试室、休息室，各功能室完全隔离，避免候考人员、考务人员以及面试结束人员接触。
+                                    - paragraph: 面试期间，重要场所入口均设置有警备纠察人员，每个考场配备监督员、计分员、引导员、计时员，电子信号屏蔽装置、录音录像设备均处于开启状态，监督员现场实时受理和处置考生的咨询投诉、申诉举报。
+                                    - paragraph: 面试第二天，天公不作美，彻雨连绵。但是考生们依旧风雨无阻，早早赶到考场。所有人都沉浸在紧张肃穆的考试氛围中，或眉头紧锁、或神色镇定……许多走出考场的考生面带喜色、胸有成竹。
+                                    - paragraph:
+                                      - strong: 现场检查督导：严字当头 确保公正
+                                    - paragraph: 面试期间，省军区专门抽调纪检人员组成精干小组，对面试工作进行全程监督，督导小组对面试各点位工作情况进行全面检查，确保面试工作经得起检验。
+                                    - paragraph: 在候考室，省军区首长亲切问询应聘人员报考动机，毕业于浙江农林大学的一名考生说道，“我从小就向往部队生活，梦想成为一名军人，但因为身体条件不达标没能如愿。这次招考给了我第二次机会，虽然文职人员不穿军装，但也是军队的一份子，也算圆了我携笔从戎的军旅梦，希望自己能面试成功。”
+                                    - paragraph: 面试工作流程规范、组织严密、把关严格，让考生充分感受到了军队作风的严谨、务实和高效，文职考试的公平、公开和公正。
+                          - generic:
+                            - heading ">>" [level=2]:
+                              - generic:
+                                - link ">>":
+                                  - /url: http://81rc.81.cn/sy/yqlj/index.html
+                            - generic:
+                              - generic:
+                                - link:
+                                  - /url: http://www.mod.gov.cn/
+                              - generic:
+                                - link:
+                                  - /url: http://www.81.cn/
+                              - generic:
+                                - link:
+                                  - /url: http://www.cpta.com.cn/
+                              - generic:
+                                - link:
+                                  - /url: https://www.21wecan.com/
+                              - generic:
+                                - link:
+                                  - /url: http://rsj.beijing.gov.cn/ywsite/bjpta/
+                      - separator
+                      - heading "Page 19" [level=4]
+                      - separator
+                      - heading "Page 20" [level=4]
+                      - separator
+                      - heading "Page 21" [level=4]
+                      - separator
+                      - heading "Page 22" [level=4]
+                    - generic:
+                      - link "Read original":
+                        - /url: http://81rc.81.cn/sy/gzdt_210283/16487810.html
+    - generic: All stories · charlens
+  - menu [active] [ref=f3e989]:
+    - menuitem "Save for later" [ref=f3e990]
+    - menuitem "Mark as read" [ref=f3e991]
+    - menuitem "Edit tags" [ref=f3e992]
+    - menuitem "Open original" [ref=f3e993]
