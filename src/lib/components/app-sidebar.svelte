@@ -15,7 +15,8 @@
 		Newspaper,
 		Plus,
 		Search,
-		Sparkles
+		Sparkles,
+		Trash2
 	} from '@lucide/svelte';
 	import type { CollectionRow } from '$lib/collections';
 	import { feedDisplayIcon } from '$lib/feed-icon';
@@ -173,27 +174,53 @@
 {#snippet feedItem(f: FeedRow)}
 	{@const icon = feedDisplayIcon(f)}
 	<Sidebar.MenuItem>
-		<Sidebar.MenuButton isActive={activeFeed === String(f.id)} tooltipContent={f.title}>
-			{#snippet child({ props })}
-				<a
-					href={href({ filter: 'all', feed: String(f.id), collection: null, view: null })}
-					{...props}
+		<div class="group/feed-row flex w-full min-w-0 items-center">
+			<Sidebar.MenuButton
+				isActive={activeFeed === String(f.id)}
+				tooltipContent={f.title}
+				class="min-w-0 flex-1"
+			>
+				{#snippet child({ props })}
+					<a
+						href={href({ filter: 'all', feed: String(f.id), collection: null, view: null })}
+						{...props}
+					>
+						<Avatar.Root class="size-5 shrink-0" variant="feed">
+							{#if icon}
+								<Avatar.Image src={icon} alt={f.title} variant="feed" />
+							{/if}
+							<Avatar.Fallback variant="feed">{f.title.slice(0, 2).toUpperCase()}</Avatar.Fallback>
+						</Avatar.Root>
+						<span class={f.unread > 0 ? 'mr-6 min-w-0 flex-1 truncate' : 'min-w-0 flex-1 truncate'}>
+							{f.title}
+						</span>
+					</a>
+				{/snippet}
+			</Sidebar.MenuButton>
+			<form
+				method="POST"
+				action="/?/removeFeed"
+				use:enhance
+				class="hidden shrink-0 group-hover/feed-row:block"
+			>
+				<input type="hidden" name="feedId" value={f.id} />
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					type="submit"
+					aria-label="Remove {f.title}"
+					title="Remove feed"
+					onclick={(e) => {
+						if (!confirm(`Remove "${f.title}" and its articles?`)) e.preventDefault();
+					}}
 				>
-					<Avatar.Root class="size-5 shrink-0" variant="feed">
-						{#if icon}
-							<Avatar.Image src={icon} alt={f.title} variant="feed" />
-						{/if}
-						<Avatar.Fallback variant="feed">{f.title.slice(0, 2).toUpperCase()}</Avatar.Fallback>
-					</Avatar.Root>
-					<span class={f.unread > 0 ? 'mr-6 min-w-0 flex-1 truncate' : 'min-w-0 flex-1 truncate'}>
-						{f.title}
-					</span>
-				</a>
-			{/snippet}
-		</Sidebar.MenuButton>
-		{#if f.unread > 0}
-			<Sidebar.MenuBadge>{f.unread}</Sidebar.MenuBadge>
-		{/if}
+					<Trash2 />
+				</Button>
+			</form>
+			{#if f.unread > 0}
+				<Sidebar.MenuBadge>{f.unread}</Sidebar.MenuBadge>
+			{/if}
+		</div>
 	</Sidebar.MenuItem>
 {/snippet}
 

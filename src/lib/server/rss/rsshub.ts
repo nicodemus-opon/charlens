@@ -261,16 +261,19 @@ export function matchRadarRules(rules: unknown, siteUrl: string): RadarCandidate
 			if (typeof s !== 'string') continue;
 			const norm = s.toLowerCase();
 			// Site-path patterns ("/", "/:category", "/blog/:id") belong to the
-			// already domain-matched namespace: bare or parameterized roots
-			// match any page, deeper prefixes must match the site path.
+			// already domain-matched namespace. Only a strict match against the
+			// pasted path counts: a bare "/" must equal the site root, a
+			// parameterized root ("/:category", "/*") must NOT match every page
+			// (that is what was auto-subscribing unrelated RSSHub routes whose
+			// items — e.g. "RSSHub has new routes" — then surfaced in Today).
 			if (norm.startsWith('/')) {
-				if (norm === '/') return true;
-				const prefix = norm.split('/:')[0].split('/*')[0].split('?')[0];
-				if (!prefix || prefix === '/') return true;
-				if (path.startsWith(prefix)) return true;
+				if (norm === '/') return path === '/' || path === '';
+				// Strict: the pasted path must match the source pattern with
+				// captures filled, not merely share a prefix.
+				if (matchSourcePattern(s, path) !== null) return true;
 				continue;
 			}
-			if (norm === '') return true;
+			if (norm === '') continue;
 			if (norm.includes(host) || host.includes(norm.replace(/[^a-z0-9.-]/g, ''))) return true;
 		}
 		return false;
@@ -307,12 +310,16 @@ export function matchRadarRules(rules: unknown, siteUrl: string): RadarCandidate
 				: rec;
 		for (const [domain, value] of Object.entries(container)) {
 			const d = domain.toLowerCase().replace(/^www\./, '');
-			if (d === host || host.endsWith(`.${d}`) || d.includes(host) || host.includes(d)) {
+			// Exact host or true subdomain only. The old substring check
+			// (`d.includes(host)`) matched unrelated domains sharing a few
+			// letters and pulled their routes into the wrong subscription.
+			if (d === host || host.endsWith(`.${d}`)) {
 				walk(value, domain);
 			}
 		}
-		// Fallback: full walk if domain indexing found nothing.
-		if (out.length === 0) walk(container, '');
+		// No fallback walk: when no domain key matched, the rules belong to
+		// other sites — walking everything would match their "/" sources
+		// against our root and subscribe unrelated routes.
 	} else {
 		walk(rules, '');
 	}

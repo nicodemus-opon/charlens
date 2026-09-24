@@ -57,6 +57,13 @@
       "when": 1790227925645,
       "tag": "0007_curved_black_panther",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790313600000,
+      "tag": "0008_junk_rsshub_notices",
+      "breakpoints": true
     }
   ]
 }

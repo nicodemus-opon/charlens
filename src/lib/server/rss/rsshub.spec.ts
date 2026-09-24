@@ -116,6 +116,25 @@ describe('matchRadarRules', () => {
 		expect(out.length).toBe(2);
 	});
 
+	it('does not match a parameterized root against an unrelated deep page', () => {
+		const rules = {
+			'example.com': {
+				blog: [{ title: 'Blog', source: ['/:category', '/'], target: '/example/posts' }]
+			}
+		};
+		// Pasting a deep product/topic page must not resolve to the blog route.
+		expect(matchRadarRules(rules, 'https://example.com/topics/open-source')).toStrictEqual([]);
+	});
+
+	it('does not match unrelated domains sharing a substring', () => {
+		const rules = {
+			'hub.example.com': {
+				'.': [{ title: 'Hub', source: ['/'], target: '/hub/feed' }]
+			}
+		};
+		expect(matchRadarRules(rules, 'https://example.com/')).toStrictEqual([]);
+	});
+
 	it('returns empty for garbage input', () => {
 		expect(matchRadarRules(null, 'not a url [[[')).toStrictEqual([]);
 	});

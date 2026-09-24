@@ -24,6 +24,7 @@ import {
 	renameTag,
 	setArticleTags,
 	toggleSaved,
+	unsubscribe,
 	type ArticleFilter
 } from '$lib/server/rss/refresh';
 
@@ -234,6 +235,20 @@ export const actions: Actions = {
 		} catch (e) {
 			console.error('moveFeed failed', e);
 			return fail(400, { message: 'Could not move feed' });
+		}
+		throw redirect(303, '/?filter=all');
+	},
+	removeFeed: async ({ request, locals }) => {
+		const user = requireUser(locals);
+		const form = await request.formData();
+		const feedId = Number(form.get('feedId') ?? form.get('id'));
+		if (!Number.isFinite(feedId)) return fail(400, { message: 'Invalid feed' });
+		try {
+			// Deletes the user's feed row; articles cascade via FK.
+			await unsubscribe(user.id, feedId);
+		} catch (e) {
+			console.error('removeFeed failed', e);
+			return fail(400, { message: 'Could not remove feed' });
 		}
 		throw redirect(303, '/?filter=all');
 	},
