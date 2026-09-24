@@ -9,6 +9,10 @@
 	"display_override": ["standalone", "minimal-ui", "browser"],
 	"background_color": "#fff8fb",
 	"theme_color": "#fff8fb",
+	"color_scheme_dark": {
+		"theme_color": "#262624",
+		"background_color": "#262624"
+	},
 	"lang": "en",
 	"dir": "ltr",
 	"categories": ["news", "productivity", "utilities"],

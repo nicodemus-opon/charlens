@@ -7,7 +7,8 @@
 			name="description"
 			content="charlens — self-hosted, multi-user RSS reader. Follow your feeds, read and save articles on any device."
 		/>
-		<meta name="theme-color" content="#fff8fb" />
+		<meta name="theme-color" content="#fff8fb" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#262624" media="(prefers-color-scheme: dark)" />
 		<meta name="text-scale" content="scale" />
 		<link rel="manifest" href="/manifest.webmanifest" />
 		<meta name="mobile-web-app-capable" content="yes" />
@@ -16,11 +17,15 @@
 		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 		<meta name="format-detection" content="telephone=no" />
 		<script>
-			// Standalone status-bar color before first paint: mirror how ModeWatcher
-			// resolves mode (stored preference, else the system preference).
+			// Pre-paint theme-color: resolve the mode the way ModeWatcher will
+			// (stored preference, else the system one) and apply it to every
+			// theme-color meta. The light meta comes first so UAs that don't
+			// understand `media` fall back to the previous single-meta color.
+			// ModeWatcher's themeColors prop stays unused on purpose: its injected
+			// head script updates only the first meta and treats "system" as dark.
 			(() => {
-				const meta = document.querySelector('meta[name="theme-color"]');
-				if (!meta) return;
+				const metas = document.querySelectorAll('meta[name="theme-color"]');
+				if (!metas.length) return;
 				let mode = null;
 				try {
 					mode = localStorage.getItem('mode-watcher-mode');
@@ -30,7 +35,8 @@
 				const dark =
 					mode === 'dark' ||
 					(mode !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-				meta.setAttribute('content', dark ? '#262624' : '#fff8fb');
+				const content = dark ? '#262624' : '#fff8fb';
+				for (const meta of metas) meta.setAttribute('content', content);
 			})();
 		</script>
 		%sveltekit.head%

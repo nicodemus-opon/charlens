@@ -13,11 +13,16 @@ const DARK_THEME_COLOR = '#262624';
 
 /** Follow the resolved color scheme so standalone status bars stay correct. */
 function syncThemeColor(): () => void {
-	const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+	// The head ships a media-guarded pair (light first); every meta gets the
+	// resolved color — media-aware UAs apply the one matching the system
+	// scheme, older UAs fall back to the first (previously light-only) meta.
+	const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
 	const apply = () => {
-		if (!meta) return;
+		if (!metas.length) return;
 		const dark = document.documentElement.classList.contains('dark');
-		meta.content = dark ? DARK_THEME_COLOR : LIGHT_THEME_COLOR;
+		metas.forEach((meta) => {
+			meta.content = dark ? DARK_THEME_COLOR : LIGHT_THEME_COLOR;
+		});
 	};
 	apply();
 	const observer = new MutationObserver(apply);

@@ -117,6 +117,19 @@ iOS Safari via **Share → Add to Home Screen**):
   production builds only (dev/HMR is never intercepted) and keeps
   `<meta name="theme-color">` in sync with light/dark mode. Updates activate
   on the next reload; bump `VERSION` in `sw.js` when changing cache behavior.
+- **System bars & splash in dark mode** — `src/app.html` ships a
+  media-guarded `theme-color` pair
+  (`media="(prefers-color-scheme: light|dark)"`, light first so UAs that
+  ignore `media` keep the old behavior) plus a pre-paint script that
+  re-resolves the stored ModeWatcher mode over **all** those metas — so
+  browser/OS chrome follows the app even when the in-app mode overrides the
+  system one. The manifest adds the spec `color_scheme_dark` member
+  (w3c/manifest PR #1207: dark `theme_color`/`background_color` for splash
+  screens and installed-app bars; implemented in WebKit, tracked for Chrome
+  in crbug.com/383165202 — until Chrome ships it, Android installed PWAs
+  keep the static light bars). ModeWatcher's `themeColors` prop is
+  intentionally unused: its head script updates only the first meta and
+  treats `system` mode as dark.
 
 ## Developing
 
