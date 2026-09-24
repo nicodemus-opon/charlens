@@ -42,7 +42,7 @@ services:
       POSTGRES_PASSWORD: '${POSTGRES_PASSWORD:-change-me-in-coolify}'
       POSTGRES_DB: '${POSTGRES_DB:-charlens}'
     volumes:
-      - pgdata:/var/lib/postgresql
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER:-charlens} -d $${POSTGRES_DB:-charlens}']
       interval: 5s
