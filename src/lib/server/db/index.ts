@@ -14,7 +14,10 @@ function getDb(): Db {
 	if (!instance) {
 		const url = env.DATABASE_URL;
 		if (!url) throw new Error('DATABASE_URL is not set');
-		instance = drizzle(postgres(url), { schema });
+		// Fail fast when Postgres is unreachable (down container, wrong
+		// port): the default 30s connect timeout turns every page load into
+		// an apparent UI freeze. Loads catch and render degraded states.
+		instance = drizzle(postgres(url, { connect_timeout: 5 }), { schema });
 	}
 	return instance;
 }

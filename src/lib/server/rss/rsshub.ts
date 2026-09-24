@@ -334,7 +334,11 @@ async function fetchRadarRules(): Promise<unknown> {
 	try {
 		const res = await fetch(`${base}/api/radar/rules`, {
 			signal: ctrl.signal,
-			headers: { 'User-Agent': 'charlens-rss/0.1 (+radar)' }
+			headers: {
+				'User-Agent':
+					'Mozilla/5.0 (compatible; charlens-rss/0.1; +https://github.com/nicodemus-opon/charlens)',
+				Accept: 'application/json'
+			}
 		});
 		if (!res.ok) throw new Error(`radar rules ${res.status}`);
 		const json = (await res.json()) as unknown;

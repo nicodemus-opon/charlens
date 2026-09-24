@@ -49,8 +49,14 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 	const deepShuffle = url.searchParams.get('deep') === '1';
 
 	try {
+		// Best-effort background refresh: never block page render on network
+		// I/O. A hanging feed fetch used to stall navigation (apparent UI
+		// freeze on filter switches); fresh items land on the next load.
+		// The explicit Refresh button still awaits completion.
 		if (!articleId && (filter === 'today' || (!feedId && !query))) {
-			await refreshStaleFeeds(user.id, false);
+			void refreshStaleFeeds(user.id, false).catch((e) =>
+				console.error('background refresh failed', e)
+			);
 		}
 		// A smart view resolves its rules at read time (dynamic article list).
 		const smart = Number.isFinite(viewId) ? await getSmartRules(user.id, viewId!) : null;

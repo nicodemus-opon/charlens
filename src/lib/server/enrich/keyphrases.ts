@@ -18,6 +18,13 @@ export function isKeyphraseModelEnabled(): boolean {
 	return (env.TAG_MODEL_ENABLED ?? '0') === '1';
 }
 
+const PYTORCH_ONLY_DEFAULT = 'ml6team/keyphrase-extraction-distilbert-inspec';
+
+/** True when TAG_MODEL_NAME still points at the PyTorch-only upstream repo. */
+export function isDefaultUnconvertedModel(): boolean {
+	return getTagModelName().trim() === PYTORCH_ONLY_DEFAULT;
+}
+
 export function getTagModelName(): string {
 	return env.TAG_MODEL_NAME ?? 'ml6team/keyphrase-extraction-distilbert-inspec';
 }
@@ -36,6 +43,11 @@ const LOAD_RETRY_MS = 5 * 60 * 1000;
 
 async function loadPipeline(): Promise<TokenPipeline | null> {
 	if (!isKeyphraseModelEnabled()) return null;
+	// The default model id ships PyTorch weights only — Transformers.js can
+	// never load it (missing onnx/model_quantized.onnx). Skip the download
+	// attempt entirely so deploys without a converted repo stay on quiet
+	// phase-1 ranking instead of logging a stack trace every process boot.
+	if (isDefaultUnconvertedModel()) return null;
 	const now = Date.now();
 	if (loadFailedAt > 0 && now - loadFailedAt < LOAD_RETRY_MS) return null;
 	if (!pipelinePromise) {

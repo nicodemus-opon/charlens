@@ -12,7 +12,11 @@ import { articleTag, tag } from '$lib/server/db/tags.schema';
 import { normalizeTagName } from '$lib/tags';
 import { extractTopics, textFromHtml } from './keywords';
 import { rankTags } from './tag-rank';
-import { extractKeyphrases, isKeyphraseModelEnabled } from './keyphrases';
+import {
+	extractKeyphrases,
+	isDefaultUnconvertedModel,
+	isKeyphraseModelEnabled
+} from './keyphrases';
 import {
 	INTEREST_CENTROIDS,
 	clusterVectors,
@@ -141,7 +145,10 @@ export async function enrichArticle(articleId: number): Promise<boolean> {
 	// tag-rank.ts does the semantic rerank/filter down to the final 5.
 	const extracted = extractTopics({ title: row.title, text }, 12);
 	let candidates = extracted.tags;
-	if (isKeyphraseModelEnabled()) {
+	// extractKeyphrases() already no-ops when disabled, but skip the call
+	// entirely for the known-unconvertible default id: a missing ONNX file
+	// can never heal, so there is no point invoking the pipeline per article.
+	if (isKeyphraseModelEnabled() && !isDefaultUnconvertedModel()) {
 		// Phase 2: open-vocab keyphrases join the candidate pool. Substring /
 		// overlap dups of heuristic candidates are skipped so the reranker
 		// never sees "ai" and "ai chips" as separate entries twice.

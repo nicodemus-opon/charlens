@@ -54,6 +54,10 @@ describe('isTransientFeedError', () => {
 		expect(isTransientFeedError(new Error('Status code 429'))).toBe(true);
 	});
 
+	it('treats bot-protection 403 as retryable (keeps the row for scheduler retry)', () => {
+		expect(isTransientFeedError(new Error('Status code 403'))).toBe(true);
+	});
+
 	it('treats non-feed responses and client errors as definitive', () => {
 		expect(isTransientFeedError(new Error('Feed not recognized as RSS 1 or 2.'))).toBe(false);
 		expect(isTransientFeedError(new Error('default RSS version not recognized.'))).toBe(false);

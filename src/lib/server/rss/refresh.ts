@@ -889,7 +889,7 @@ export async function getRecommendedCount(userId: string): Promise<number> {
 			and(
 				eq(subscription.userId, userId),
 				eq(feed.userId, userId),
-				gte(article.publishedAt, since),
+				or(gte(article.publishedAt, since), gte(article.createdAt, since))!,
 				sql`coalesce(${userArticleState.isRead}, false) = false`
 			)
 		);
@@ -931,10 +931,14 @@ export async function getRecommendedArticles(
 		}
 	}
 	const since = new Date(Date.now() - 14 * 86400000);
+	// Same "new to the reader" semantics as the Today filter: a feed's
+	// backlog counts if published OR first seen inside the window, so a
+	// freshly added feed shows up instead of being filtered out for having
+	// old <pubDate>s.
 	const conds = [
 		eq(subscription.userId, userId),
 		eq(feed.userId, userId),
-		gte(article.publishedAt, since)
+		or(gte(article.publishedAt, since), gte(article.createdAt, since))!
 	];
 	if (feedId) conds.push(eq(article.feedId, feedId));
 	if (isSearch && !queryVec) {

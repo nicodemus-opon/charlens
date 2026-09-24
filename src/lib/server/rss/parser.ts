@@ -6,7 +6,14 @@ import { getRadarCandidates, isRsshubUrl, resolveCandidateUrl } from './rsshub';
 
 export const PARSER_OPTIONS = {
 	timeout: 10000,
-	headers: { 'User-Agent': 'charlens-rss/0.1 (+mvp)' },
+	headers: {
+		// Browser-like UA: many WordPress/Cloudflare fronted blogs (e.g.
+		// kdnuggets.com) return 403 to library default UAs ("Mozilla/5.0"
+		// alone or custom bot tokens) while serving real browsers fine.
+		'User-Agent':
+			'Mozilla/5.0 (compatible; charlens-rss/0.1; +https://github.com/nicodemus-opon/charlens)',
+		Accept: 'application/rss+xml, application/xml, text/xml, */*'
+	},
 	// See $lib/server/net: Node's Happy Eyeballs stalls on broken-IPv6
 	// networks (news.ycombinator.com ETIMEDOUT while curl works). rss-parser
 	// forwards requestOptions to http/https.get, so pin DNS-order connects.
@@ -147,7 +154,12 @@ export function isTransientFeedError(e: unknown): boolean {
 	if (!(e instanceof Error)) return false;
 	const code = (e as NodeJS.ErrnoException).code ?? '';
 	const text = `${e.message} ${code}`;
-	return /timed out|timeout|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|EHOSTUNREACH|ENETUNREACH|EPIPE|socket hang up|fetch failed|network error|Status code (5\d\d|429|408)/i.test(
+	// 403/401 are transient *for row retention*: bot-protection (Cloudflare /
+	// WordPress) serves 403 to non-browser UAs while browsers work fine, and
+	// polling blocks lift or are bypassed with a better UA. Deleting the user's
+	// feed on a 403 would drop subscriptions that a retry could heal, so keep
+	// the placeholder and let the scheduler retry.
+	return /timed out|timeout|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|EHOSTUNREACH|ENETUNREACH|EPIPE|socket hang up|fetch failed|network error|Status code (5\d\d|429|408|40[13])/i.test(
 		text
 	);
 }
