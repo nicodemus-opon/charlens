@@ -49,10 +49,14 @@ first account, then land on the reader: Today list, per-feed views, search
    **3000** (e.g. `https://reader.example.com:3000`). Coolify routes by
    domain — the `ports:` entries are for local compose only.
 2. Set env vars in Coolify (never commit secrets):
-   - `DATABASE_URL=postgres://charlens:<POSTGRES_PASSWORD>@db:5432/charlens`
-     (must match the `db` service credentials; default user/db `charlens`)
-   - `BETTER_AUTH_SECRET` — `openssl rand -hex 32`
+   - `BETTER_AUTH_SECRET` — `openssl rand -hex 32` (required: the app
+     refuses to start without it)
    - `ORIGIN=https://reader.example.com` (your public URL — auth callbacks)
+   - Optional: `POSTGRES_PASSWORD` — bootstrap password for the bundled
+     `db` (defaults to `change-me-in-coolify`; set your own for anything
+     reachable). `DATABASE_URL` needs no setup: it defaults to the bundled
+     `db` service (`postgres://<user>:<password>@db:5432/<db>`); set it
+     only to use an external Postgres.
    - Optional: `RSSHUB_*`, `FULLTEXT_*`, `FEED_REFRESH_*`,
      `AUTH_DISABLE_SIGNUP=1` (defaults in compose cover the rest; note
      `RSSHUB_BASE_URL` defaults to `http://rsshub:1200` for compose

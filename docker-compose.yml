@@ -15,13 +15,16 @@
 #   2. The `ports:` entries below are for local `docker compose up` only —
 #      Coolify ignores published ports and routes by domain via its proxy.
 #   3. Set env vars in Coolify (never commit secrets):
-#        DATABASE_URL        postgres://charlens:${POSTGRES_PASSWORD:-change-me}@db:5432/charlens
-#        BETTER_AUTH_SECRET  (openssl rand -hex 32)
-#        ORIGIN              https://reader.example.com   (your public URL)
+#        BETTER_AUTH_SECRET  (openssl rand -hex 32) — required, fails fast
+#        ORIGIN              https://reader.example.com (your public URL)
+#        POSTGRES_PASSWORD   recommended (default: change-me-in-coolify)
+#      DATABASE_URL is optional — it defaults to the bundled `db` service
+#      (postgres://<user>:<password>@db:5432/<db>). Set it only to use an
+#      external Postgres.
 #      Optional overrides: APP_PORT/POSTGRES_PORT/RSSHUB_PORT (local ports),
 #      AUTH_DISABLE_SIGNUP, RSSHUB_*, FULLTEXT_*, FEED_REFRESH_*, TAG_*.
-#      Missing DATABASE_URL / BETTER_AUTH_SECRET / ORIGIN fail fast with a
-#      clear error in the app log (see docker-entrypoint.sh).
+#      A missing BETTER_AUTH_SECRET fails fast with a clear error in the app
+#      log; a missing ORIGIN only warns (see docker-entrypoint.sh).
 #   4. Volumes `pgdata` (postgres), `rsshub-data` and `embed-cache` are created
 #      automatically. `embed-cache` persists the ~80MB embedding model
 #      (EMBED_CACHE_DIR=/app/.cache/hf) so redeploys don't re-download it.
@@ -85,8 +88,14 @@ services:
       NODE_ENV: production
       HOST: '0.0.0.0'
       PORT: '3000'
-      # --- required (set in Coolify; entrypoint fails fast if missing) ---
-      DATABASE_URL: '${DATABASE_URL:-}'
+      # --- database (defaults to the bundled `db` service) ---------------
+      # Set DATABASE_URL only for an external Postgres. The entrypoint also
+      # re-pins loopback hosts (host-dev .env values) to `db:5432`.
+      DATABASE_URL: '${DATABASE_URL:-postgres://${POSTGRES_USER:-charlens}:${POSTGRES_PASSWORD:-change-me-in-coolify}@db:5432/${POSTGRES_DB:-charlens}}'
+      POSTGRES_USER: '${POSTGRES_USER:-charlens}'
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD:-change-me-in-coolify}'
+      POSTGRES_DB: '${POSTGRES_DB:-charlens}'
+      # --- required secret (set in Coolify; entrypoint fails fast) --------
       BETTER_AUTH_SECRET: '${BETTER_AUTH_SECRET:-}'
       ORIGIN: '${ORIGIN:-}'
       # --- sane out-of-the-box defaults (override in Coolify as needed) ---
