@@ -99,6 +99,25 @@ All RSS fetching/parsing lives in SvelteKit (`src/lib/server/rss/`).
 Auth tables come from `pnpm auth:schema` (better-auth → Drizzle schema). Run
 it again after upgrading better-auth, then `pnpm db:generate` + `pnpm db:migrate`.
 
+## Installable PWA
+
+charlens installs as a Progressive Web App (Chrome/Edge on desktop + Android,
+iOS Safari via **Share → Add to Home Screen**):
+
+- **Manifest & icons** — `static/manifest.webmanifest` (standalone display,
+  Today / Read later launcher shortcuts) with the icon set in `static/icons/`.
+  After changing `static/logo.png`, regenerate the set with
+  `python3 scripts/generate-pwa-icons.py`.
+- **Service worker** — `static/sw.js`, hand-rolled and dependency-free:
+  navigations and `/api` GETs are network-first with a cache fallback (so
+  articles you've opened stay readable offline), hashed `/_app/immutable`
+  assets are cache-first, and uncached pages fall back to a built-in offline
+  page. `/api/auth/*` and redirects to `/login` are never cached.
+- **Registration** — `src/lib/pwa.ts`, wired from the root layout. It runs in
+  production builds only (dev/HMR is never intercepted) and keeps
+  `<meta name="theme-color">` in sync with light/dark mode. Updates activate
+  on the next reload; bump `VERSION` in `sw.js` when changing cache behavior.
+
 ## Developing
 
 ## Creating a project

@@ -1,0 +1,41 @@
+{
+	"id": "/",
+	"name": "charlens — self-hosted RSS reader",
+	"short_name": "charlens",
+	"description": "Self-hosted, multi-user RSS reader: follow your feeds, read and save articles on any device.",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"display_override": ["standalone", "minimal-ui", "browser"],
+	"background_color": "#fff8fb",
+	"theme_color": "#fff8fb",
+	"lang": "en",
+	"dir": "ltr",
+	"categories": ["news", "productivity", "utilities"],
+	"icons": [
+		{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+		{ "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+		{
+			"src": "/icons/maskable-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	],
+	"shortcuts": [
+		{
+			"name": "Today",
+			"short_name": "Today",
+			"description": "Jump to today's unread articles",
+			"url": "/?filter=today",
+			"icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+		},
+		{
+			"name": "Read later",
+			"short_name": "Read later",
+			"description": "Open your saved articles",
+			"url": "/?filter=saved",
+			"icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+		}
+	]
+}

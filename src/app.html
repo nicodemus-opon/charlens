@@ -3,8 +3,36 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-		<meta name="theme-color" content="#faf5f5" />
+		<meta
+			name="description"
+			content="charlens — self-hosted, multi-user RSS reader. Follow your feeds, read and save articles on any device."
+		/>
+		<meta name="theme-color" content="#fff8fb" />
 		<meta name="text-scale" content="scale" />
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="charlens" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+		<meta name="format-detection" content="telephone=no" />
+		<script>
+			// Standalone status-bar color before first paint: mirror how ModeWatcher
+			// resolves mode (stored preference, else the system preference).
+			(() => {
+				const meta = document.querySelector('meta[name="theme-color"]');
+				if (!meta) return;
+				let mode = null;
+				try {
+					mode = localStorage.getItem('mode-watcher-mode');
+				} catch {
+					/* storage unavailable */
+				}
+				const dark =
+					mode === 'dark' ||
+					(mode !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+				meta.setAttribute('content', dark ? '#262624' : '#fff8fb');
+			})();
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

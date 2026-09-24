@@ -1,20 +1,24 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import './layout.css';
 	import { page } from '$app/stores';
 	import { ModeWatcher } from 'mode-watcher';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
+	import { initPwa } from '$lib/pwa';
 
 	let { children, data } = $props();
 
 	// The login page renders bare — no sidebar, no app chrome.
 	const isLogin = $derived($page.route.id === '/login');
+
+	onMount(initPwa);
 </script>
 
 <svelte:head>
 	<title>charlens</title>
 	<link rel="icon" type="image/png" href="/favicon.png" />
-	<link rel="apple-touch-icon" href="/logo.png" />
+	<link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png" />
 </svelte:head>
 
 <ModeWatcher defaultMode="system" />
