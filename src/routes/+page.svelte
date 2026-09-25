@@ -295,7 +295,7 @@
 			onCollapse={handlePaneCollapse}
 			class="flex min-h-0 flex-col bg-card max-md:hidden"
 		>
-			<div class="flex items-center gap-2 border-b border-border p-4">
+			<div class="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
 				<SearchBox />
 				<ArticleViewToggle bind:view />
 			</div>

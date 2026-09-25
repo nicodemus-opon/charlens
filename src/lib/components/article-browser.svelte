@@ -32,7 +32,7 @@
 </script>
 
 <section class="flex min-h-0 flex-1 flex-col bg-background">
-	<div class="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3 sm:px-5">
+	<div class="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4 sm:px-5">
 		<div class="flex min-w-0 flex-1 items-center gap-2">
 			<h2
 				tabindex="-1"

@@ -116,7 +116,11 @@
 								{/if}
 								{#if !a.isRead}<Badge variant="default">New</Badge>{/if}
 								{#if a.isSaved}<Badge variant="secondary">Saved</Badge>{/if}
-								{#if a.tags[0]}<Badge variant="outline">{a.tags[0].name}</Badge>{/if}
+								{#if a.tags[0]}
+									<Badge variant="outline" class="max-w-36 justify-start">
+										<span class="min-w-0 truncate">{a.tags[0].name}</span>
+									</Badge>
+								{/if}
 							</div>
 							<Card.Title class="line-clamp-2">{a.title}</Card.Title>
 						</div>
@@ -213,7 +217,9 @@
 							{#if !a.isRead}<Badge variant="default" class="shrink-0">New</Badge>{/if}
 							{#if a.isSaved}<Badge variant="secondary" class="shrink-0">Saved</Badge>{/if}
 							{#each a.tags.slice(0, 3) as t (t.id)}
-								<Badge variant="outline" class="max-w-36 truncate">{t.name}</Badge>
+								<Badge variant="outline" class="max-w-36 justify-start">
+									<span class="min-w-0 truncate">{t.name}</span>
+								</Badge>
 							{/each}
 						</div>
 					{/if}

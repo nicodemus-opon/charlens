@@ -146,7 +146,7 @@
 			</Empty.Root>
 		</div>
 	{:else}
-		<div class="flex items-center gap-2 border-b border-border px-4 py-3">
+		<div class="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
 			<div class="flex min-w-0 flex-1 items-center gap-1">
 				{#if showBack}
 					<Button
@@ -286,11 +286,14 @@
 									href={tagHref(t.id)}
 									title={`Show all stories tagged ${t.name}`}
 									onclick={() => onTagClick?.()}
+									class="max-w-full justify-start"
 								>
-									{t.name}
+									<span class="min-w-0 truncate">{t.name}</span>
 								</Badge>
 							{:else}
-								<Badge variant="secondary">{t.name}</Badge>
+								<Badge variant="secondary" class="max-w-full justify-start"
+									><span class="min-w-0 truncate">{t.name}</span></Badge
+								>
 							{/if}
 						{/each}
 					</div>
