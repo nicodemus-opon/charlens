@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tick } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -12,18 +13,24 @@
 		Bookmark,
 		ChevronRight,
 		Compass,
+		Copy,
+		ExternalLink,
+		FolderInput,
+		FolderOpen,
+		MoreHorizontal,
 		Newspaper,
+		Pencil,
 		Plus,
 		Search,
 		Sparkles,
 		Trash2
 	} from '@lucide/svelte';
-	import type { CollectionRow } from '$lib/collections';
+	import { GENERAL_COLLECTION, type CollectionRow } from '$lib/collections';
 	import { feedDisplayIcon } from '$lib/feed-icon';
 	import { mobileActions } from '$lib/mobile-actions.svelte.js';
 	import AddFeedDialog from './add-feed-dialog.svelte';
+	import CollectionDialog from './collection-dialog.svelte';
 	import CommandPalette from './command-palette.svelte';
-	import ManageCollectionsDialog from './manage-collections-dialog.svelte';
 	import SmartViewBuilderDialog from './smart-view-builder-dialog.svelte';
 	import NavUser from './nav-user.svelte';
 
@@ -67,9 +74,17 @@
 		user?: SidebarUser | null;
 	} = $props();
 
-	let manageOpen = $state(false);
+	let collectionDialogOpen = $state(false);
 	let smartOpen = $state(false);
 	let refreshForm = $state<HTMLFormElement | null>(null);
+	let moveForm = $state<HTMLFormElement | null>(null);
+	let removeForm = $state<HTMLFormElement | null>(null);
+	let deleteCollectionForm = $state<HTMLFormElement | null>(null);
+	let pendingMove = $state<{ feedId: number; collectionId: number } | null>(null);
+	let pendingRemoveId = $state<number | null>(null);
+	let pendingDeleteCollectionId = $state<number | null>(null);
+	/** Rename target for the collection dialog (null = create mode). */
+	let renameTarget = $state<{ id: number; name: string } | null>(null);
 
 	const sidebar = Sidebar.useSidebar();
 
@@ -160,6 +175,75 @@
 		refreshForm?.requestSubmit();
 	}
 
+	async function copyText(text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+		} catch {
+			const area = document.createElement('textarea');
+			area.value = text;
+			document.body.appendChild(area);
+			area.select();
+			document.execCommand('copy');
+			area.remove();
+		}
+	}
+
+	function openFeed(f: FeedRow) {
+		goto(href({ filter: 'all', feed: String(f.id), collection: null, view: null }), {
+			keepFocus: true
+		});
+	}
+
+	function openSite(url: string | null) {
+		if (url) window.open(url, '_blank', 'noopener');
+	}
+
+	/** Dropdown items cannot post forms, so move/remove submit shared hidden forms. */
+	async function requestMoveFeed(f: FeedRow, collectionId: number) {
+		if (f.collectionId === collectionId) return;
+		pendingMove = { feedId: f.id, collectionId };
+		await tick();
+		moveForm?.requestSubmit();
+	}
+
+	async function requestRemoveFeed(f: FeedRow) {
+		if (!confirm(`Remove "${f.title}" and its articles?`)) return;
+		pendingRemoveId = f.id;
+		await tick();
+		removeForm?.requestSubmit();
+	}
+
+	type CollectionGroup = { id: number; name: string };
+
+	function openCollection(g: CollectionGroup) {
+		collapsedCollections[g.name] = false;
+		goto(href({ filter: 'all', collection: String(g.id), feed: null, view: null }), {
+			keepFocus: true
+		});
+	}
+
+	function toggleCollection(name: string) {
+		collapsedCollections[name] = !collapsedCollections[name];
+	}
+
+	function openCreateCollection() {
+		renameTarget = null;
+		collectionDialogOpen = true;
+	}
+
+	function openRenameCollection(id: number, name: string) {
+		renameTarget = { id, name };
+		collectionDialogOpen = true;
+	}
+
+	async function requestDeleteCollection(g: CollectionGroup) {
+		if (!confirm(`Delete collection "${g.name}"? Its feeds move back to ${GENERAL_COLLECTION}.`))
+			return;
+		pendingDeleteCollectionId = g.id;
+		await tick();
+		deleteCollectionForm?.requestSubmit();
+	}
+
 	// Picking a destination on a phone dismisses the drawer — otherwise the
 	// sheet stays over the freshly loaded list.
 	afterNavigate(() => {
@@ -174,54 +258,139 @@
 {#snippet feedItem(f: FeedRow)}
 	{@const icon = feedDisplayIcon(f)}
 	<Sidebar.MenuItem>
-		<div class="group/feed-row flex w-full min-w-0 items-center">
-			<Sidebar.MenuButton
-				isActive={activeFeed === String(f.id)}
-				tooltipContent={f.title}
-				class="min-w-0 flex-1"
-			>
-				{#snippet child({ props })}
-					<a
-						href={href({ filter: 'all', feed: String(f.id), collection: null, view: null })}
-						{...props}
-					>
-						<Avatar.Root class="size-5 shrink-0" variant="feed">
-							{#if icon}
-								<Avatar.Image src={icon} alt={f.title} variant="feed" />
-							{/if}
-							<Avatar.Fallback variant="feed">{f.title.slice(0, 2).toUpperCase()}</Avatar.Fallback>
-						</Avatar.Root>
-						<span class={f.unread > 0 ? 'mr-6 min-w-0 flex-1 truncate' : 'min-w-0 flex-1 truncate'}>
-							{f.title}
-						</span>
-					</a>
-				{/snippet}
-			</Sidebar.MenuButton>
-			<form
-				method="POST"
-				action="/?/removeFeed"
-				use:enhance
-				class="hidden shrink-0 group-hover/feed-row:block"
-			>
-				<input type="hidden" name="feedId" value={f.id} />
-				<Button
-					variant="ghost"
-					size="icon-sm"
-					type="submit"
-					aria-label="Remove {f.title}"
-					title="Remove feed"
-					onclick={(e) => {
-						if (!confirm(`Remove "${f.title}" and its articles?`)) e.preventDefault();
-					}}
+		<Sidebar.MenuButton
+			isActive={activeFeed === String(f.id)}
+			tooltipContent={f.title}
+			class="min-w-0 flex-1"
+		>
+			{#snippet child({ props })}
+				<a
+					href={href({ filter: 'all', feed: String(f.id), collection: null, view: null })}
+					{...props}
 				>
+					<Avatar.Root class="size-5 shrink-0" variant="feed">
+						{#if icon}
+							<Avatar.Image src={icon} alt={f.title} variant="feed" />
+						{/if}
+						<Avatar.Fallback variant="feed">{f.title.slice(0, 2).toUpperCase()}</Avatar.Fallback>
+					</Avatar.Root>
+					<span class="min-w-0 flex-1 truncate">
+						{f.title}
+					</span>
+				</a>
+			{/snippet}
+		</Sidebar.MenuButton>
+		<DropdownMenu.Root>
+			<DropdownMenu.Trigger>
+				{#snippet child({ props })}
+					<Sidebar.MenuAction
+						{...props}
+						showOnHover
+						aria-label="Feed actions for {f.title}"
+						title="Feed actions"
+					>
+						<MoreHorizontal />
+					</Sidebar.MenuAction>
+				{/snippet}
+			</DropdownMenu.Trigger>
+			<DropdownMenu.Content side="right" align="start" class="w-56">
+				<DropdownMenu.Label>{f.title}</DropdownMenu.Label>
+				<DropdownMenu.Separator />
+				<DropdownMenu.Item onSelect={() => openFeed(f)}>
+					<Newspaper />
+					Open feed
+				</DropdownMenu.Item>
+				{#if f.siteUrl}
+					<DropdownMenu.Item onSelect={() => openSite(f.siteUrl)}>
+						<ExternalLink />
+						Open site
+					</DropdownMenu.Item>
+				{/if}
+				<DropdownMenu.Item onSelect={() => void copyText(f.url)}>
+					<Copy />
+					Copy feed URL
+				</DropdownMenu.Item>
+				{#if f.siteUrl}
+					<DropdownMenu.Item onSelect={() => void copyText(f.siteUrl ?? '')}>
+						<Copy />
+						Copy site URL
+					</DropdownMenu.Item>
+				{/if}
+				<DropdownMenu.Separator />
+				{#if manualCollections.length > 1}
+					<DropdownMenu.Sub>
+						<DropdownMenu.SubTrigger>
+							<FolderInput />
+							Move to collection
+						</DropdownMenu.SubTrigger>
+						<DropdownMenu.SubContent class="w-56">
+							{#each manualCollections as c (c.id)}
+								<DropdownMenu.Item
+									disabled={c.id === f.collectionId}
+									onSelect={() => void requestMoveFeed(f, c.id)}
+								>
+									{c.name}
+								</DropdownMenu.Item>
+							{/each}
+						</DropdownMenu.SubContent>
+					</DropdownMenu.Sub>
+				{/if}
+				<DropdownMenu.Separator />
+				<DropdownMenu.Item variant="destructive" onSelect={() => void requestRemoveFeed(f)}>
 					<Trash2 />
-				</Button>
-			</form>
-			{#if f.unread > 0}
-				<Sidebar.MenuBadge>{f.unread}</Sidebar.MenuBadge>
-			{/if}
-		</div>
+					Remove feed
+				</DropdownMenu.Item>
+			</DropdownMenu.Content>
+		</DropdownMenu.Root>
+		{#if f.unread > 0}
+			<Sidebar.MenuBadge
+				class="group-focus-within/menu-item:opacity-0 group-hover/menu-item:opacity-0"
+				>{f.unread}</Sidebar.MenuBadge
+			>
+		{/if}
 	</Sidebar.MenuItem>
+{/snippet}
+
+{#snippet collectionMenu(g: CollectionGroup)}
+	{@const isOpen = !collapsedCollections[g.name]}
+	<DropdownMenu.Root>
+		<DropdownMenu.Trigger>
+			{#snippet child({ props })}
+				<Sidebar.MenuAction
+					{...props}
+					showOnHover
+					aria-label="Collection actions for {g.name}"
+					title="Collection actions"
+				>
+					<MoreHorizontal />
+				</Sidebar.MenuAction>
+			{/snippet}
+		</DropdownMenu.Trigger>
+		<DropdownMenu.Content side="right" align="start" class="w-56">
+			<DropdownMenu.Label>{g.name}</DropdownMenu.Label>
+			<DropdownMenu.Separator />
+			<DropdownMenu.Item onSelect={() => openCollection(g)}>
+				<FolderOpen />
+				Open collection
+			</DropdownMenu.Item>
+			<DropdownMenu.Item onSelect={() => toggleCollection(g.name)}>
+				<ChevronRight />
+				{isOpen ? 'Collapse' : 'Expand'}
+			</DropdownMenu.Item>
+			<DropdownMenu.Separator />
+			<DropdownMenu.Item onSelect={() => openRenameCollection(g.id, g.name)}>
+				<Pencil />
+				Rename…
+			</DropdownMenu.Item>
+			{#if g.name !== GENERAL_COLLECTION}
+				<DropdownMenu.Separator />
+				<DropdownMenu.Item variant="destructive" onSelect={() => void requestDeleteCollection(g)}>
+					<Trash2 />
+					Delete collection
+				</DropdownMenu.Item>
+			{/if}
+		</DropdownMenu.Content>
+	</DropdownMenu.Root>
 {/snippet}
 
 <Sidebar.Root collapsible="icon">
@@ -426,9 +595,7 @@
 						<DropdownMenu.Item onSelect={() => (smartOpen = true)}>
 							New smart view
 						</DropdownMenu.Item>
-						<DropdownMenu.Item onSelect={() => (manageOpen = true)}>
-							Manage collections
-						</DropdownMenu.Item>
+						<DropdownMenu.Item onSelect={openCreateCollection}>Create collection</DropdownMenu.Item>
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
 				<Sidebar.GroupContent>
@@ -438,45 +605,52 @@
 							open={!collapsedCollections[group.name]}
 							onOpenChange={(open) => (collapsedCollections[group.name] = !open)}
 						>
-							<Collapsible.Trigger>
-								{#snippet child({ props })}
-									<div class="flex w-full items-center gap-1">
-										{#if group.id != null}
-											<Sidebar.MenuButton
-												isActive={activeCollection === String(group.id)}
-												class="min-w-0 flex-1"
-											>
-												{#snippet child({ props: menuProps })}
-													<a
-														href={href({
-															filter: 'all',
-															collection: String(group.id),
-															feed: null,
-															view: null
-														})}
-														{...menuProps}
-													>
-														<span class="truncate">{group.name}</span>
-													</a>
-												{/snippet}
-											</Sidebar.MenuButton>
-										{:else}
-											<Sidebar.MenuButton class="flex-1">
-												<span class="truncate">{group.name}</span>
-											</Sidebar.MenuButton>
-										{/if}
+							<div class="relative flex w-full items-center">
+								<Collapsible.Trigger>
+									{#snippet child({ props })}
 										<Sidebar.MenuButton
 											{...props}
 											class="w-auto shrink-0"
-											aria-label="Toggle collection"
+											aria-label="Toggle {group.name}"
 										>
 											<ChevronRight
 												class="transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
 											/>
 										</Sidebar.MenuButton>
+									{/snippet}
+								</Collapsible.Trigger>
+								{#if group.id != null}
+									<div class="group/menu-item relative flex min-w-0 flex-1 items-center">
+										<Sidebar.MenuButton
+											isActive={activeCollection === String(group.id)}
+											tooltipContent={group.name}
+											class="min-w-0 flex-1"
+										>
+											{#snippet child({ props: menuProps })}
+												<a
+													href={href({
+														filter: 'all',
+														collection: String(group.id),
+														feed: null,
+														view: null
+													})}
+													{...menuProps}
+													onclick={() => {
+														collapsedCollections[group.name] = false;
+													}}
+												>
+													<span class="truncate">{group.name}</span>
+												</a>
+											{/snippet}
+										</Sidebar.MenuButton>
+										{@render collectionMenu({ id: group.id, name: group.name })}
 									</div>
-								{/snippet}
-							</Collapsible.Trigger>
+								{:else}
+									<Sidebar.MenuButton class="flex-1">
+										<span class="truncate">{group.name}</span>
+									</Sidebar.MenuButton>
+								{/if}
+							</div>
 							<Collapsible.Content>
 								<Sidebar.Menu>
 									{#each group.items as f (f.id)}
@@ -508,6 +682,22 @@
 </Sidebar.Root>
 
 <form method="POST" action="/?/refresh" use:enhance class="hidden" bind:this={refreshForm}></form>
+<form method="POST" action="/?/moveFeed" use:enhance class="hidden" bind:this={moveForm}>
+	<input type="hidden" name="feedId" value={pendingMove?.feedId ?? ''} />
+	<input type="hidden" name="collectionId" value={pendingMove?.collectionId ?? ''} />
+</form>
+<form method="POST" action="/?/removeFeed" use:enhance class="hidden" bind:this={removeForm}>
+	<input type="hidden" name="feedId" value={pendingRemoveId ?? ''} />
+</form>
+<form
+	method="POST"
+	action="/?/deleteCollection"
+	use:enhance
+	class="hidden"
+	bind:this={deleteCollectionForm}
+>
+	<input type="hidden" name="id" value={pendingDeleteCollectionId ?? ''} />
+</form>
 
 <CommandPalette
 	bind:open={mobileActions.paletteOpen}
@@ -519,14 +709,10 @@
 />
 
 <AddFeedDialog bind:open={mobileActions.addOpen} existingCollections={userCollections} />
-<ManageCollectionsDialog
-	bind:open={manageOpen}
-	collections={manualCollections}
-	feeds={feeds.map((f) => ({
-		id: f.id,
-		title: f.title,
-		collectionId: f.collectionId
-	}))}
+<CollectionDialog
+	bind:open={collectionDialogOpen}
+	collectionId={renameTarget?.id ?? null}
+	initialName={renameTarget?.name ?? ''}
 />
 <SmartViewBuilderDialog
 	bind:open={smartOpen}
