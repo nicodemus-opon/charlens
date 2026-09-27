@@ -74,6 +74,8 @@
 	let view = $state<ArticleView>(readStoredView());
 	let panelOpen = $state(readStoredPanel());
 	let focusMode = $state(readStoredFocus());
+	// Refresh-button feedback: spins the icon for the round trip only.
+	let refreshing = $state(false);
 	// False during SSR and the first client paint: the view-dependent lists
 	// render a neutral skeleton until the saved prefs are confirmed, so the
 	// page never flashes the default layout before swapping to the saved one.
@@ -318,9 +320,19 @@
 							<Shuffle />
 						</Button>
 					{/if}
-					<form method="POST" action="/?/refresh" use:enhance>
+					<form
+						method="POST"
+						action="/?/refresh"
+						use:enhance={() => {
+							refreshing = true;
+							return async ({ update }) => {
+								await update();
+								refreshing = false;
+							};
+						}}
+					>
 						<Button variant="ghost" size="icon-sm" type="submit" aria-label="Refresh feeds">
-							<RefreshCw />
+							<RefreshCw class={refreshing ? 'animate-spin' : undefined} />
 						</Button>
 					</form>
 				</div>

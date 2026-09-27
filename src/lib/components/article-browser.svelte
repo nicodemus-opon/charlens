@@ -29,6 +29,8 @@
 	} = $props();
 
 	const unreadCount = $derived(articles.filter((a) => !a.isRead).length);
+	// Refresh-button feedback: spins the icon for the round trip only.
+	let refreshing = $state(false);
 </script>
 
 <section class="flex min-h-0 flex-1 flex-col bg-background">
@@ -58,9 +60,19 @@
 					<PanelLeftOpen />
 				</Button>
 			{/if}
-			<form method="POST" action="/?/refresh" use:enhance>
+			<form
+				method="POST"
+				action="/?/refresh"
+				use:enhance={() => {
+					refreshing = true;
+					return async ({ update }) => {
+						await update();
+						refreshing = false;
+					};
+				}}
+			>
 				<Button variant="ghost" size="icon-sm" type="submit" aria-label="Refresh feeds">
-					<RefreshCw />
+					<RefreshCw class={refreshing ? 'animate-spin' : undefined} />
 				</Button>
 			</form>
 		</div>

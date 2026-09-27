@@ -55,6 +55,10 @@
 	--shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
 	--shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
 	--tracking-normal: 0em;
+	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+	--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+	--duration-quick: 120ms;
+	--duration-standard: 200ms;
 }
 
 .dark {
@@ -176,4 +180,17 @@
 
 @utility pt-safe {
 	padding-top: env(safe-area-inset-top);
+}
+
+/* Brand motion identity: one easing family, two durations. UI motion stays
+   under 300ms, transform/opacity only. Hover motion is intentionally absent —
+   gate any future `:hover` transform behind
+   `@media (hover: hover) and (pointer: fine)` so touch taps never fire it. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		transition-duration: 0.01ms !important;
+	}
 }

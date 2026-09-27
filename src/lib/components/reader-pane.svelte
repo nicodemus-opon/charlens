@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { enhance } from '$app/forms';
+	import { prefersReducedMotion } from 'svelte/motion';
+	import { cubicOut } from 'svelte/easing';
+	import { fly } from 'svelte/transition';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
@@ -117,6 +120,11 @@
 
 	const textLength = $derived((article?.contentHtml ?? '').replace(/<[^>]+>/g, '').trim().length);
 	const showFulltext = $derived(article != null && (textLength === 0 || textLength < 500));
+	// Entrance-only bridging for article swaps: prevents a jarring teleport when
+	// the reader content changes. Near-imperceptible by design (180ms ease-out,
+	// transform + opacity only); no exit animation so rapid navigation retargets
+	// cleanly. Reduced-motion users get an instant swap.
+	const reduceMotion = $derived(prefersReducedMotion.current);
 
 	async function loadFulltext() {
 		if (!article || fulltextBusy) return;
@@ -267,77 +275,83 @@
 			<input type="hidden" name="id" value={article.id} />
 		</form>
 		<div class="min-h-0 flex-1 overflow-y-auto" bind:this={scrollEl}>
-			<article
-				class="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-6 pb-12 sm:px-8 sm:pt-10 md:px-10"
-			>
-				<h1 class="text-2xl font-bold text-balance break-words text-foreground sm:text-3xl">
-					{article.title}
-				</h1>
-				<p class="text-sm text-muted-foreground">
-					{article.feedTitle}{#if article.author}
-						by {article.author}{/if} · {prettyDate(article.publishedAt)}
-				</p>
-				{#if (article.tags ?? []).length > 0}
-					<div class="flex flex-wrap gap-1.5">
-						{#each article.tags ?? [] as t (t.id)}
-							{#if tagHref}
-								<Badge
-									variant="secondary"
-									href={tagHref(t.id)}
-									title={`Show all stories tagged ${t.name}`}
-									onclick={() => onTagClick?.()}
-									class="max-w-full justify-start"
-								>
-									<span class="min-w-0 truncate">{t.name}</span>
-								</Badge>
-							{:else}
-								<Badge variant="secondary" class="max-w-full justify-start"
-									><span class="min-w-0 truncate">{t.name}</span></Badge
-								>
-							{/if}
-						{/each}
-					</div>
-				{/if}
-				<Separator />
-				{#if article.imageUrl}
-					<img
-						src={article.imageUrl}
-						alt={article.title}
-						class="aspect-video w-full rounded-xl bg-muted object-cover"
-					/>
-				{/if}
-				{#if article.contentHtml}
-					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-					<div
-						class="prose max-w-none text-base leading-relaxed text-foreground prose-neutral sm:text-sm dark:prose-invert"
+			{#key article.id}
+				<div
+					in:fly={{ y: reduceMotion ? 0 : 8, duration: reduceMotion ? 0 : 180, easing: cubicOut }}
+				>
+					<article
+						class="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-6 pb-12 sm:px-8 sm:pt-10 md:px-10"
 					>
-						{@html article.contentHtml}
-					</div>
-				{:else if article.excerpt}
-					<p class="text-base leading-relaxed text-foreground">{article.excerpt}</p>
-				{/if}
-				{#if showFulltext}
-					<div class="flex flex-col gap-2">
-						<div>
-							<Button variant="outline" onclick={loadFulltext} disabled={fulltextBusy}>
-								{fulltextBusy ? 'Fetching full text…' : 'Load full text'}
+						<h1 class="text-2xl font-bold text-balance break-words text-foreground sm:text-3xl">
+							{article.title}
+						</h1>
+						<p class="text-sm text-muted-foreground">
+							{article.feedTitle}{#if article.author}
+								by {article.author}{/if} · {prettyDate(article.publishedAt)}
+						</p>
+						{#if (article.tags ?? []).length > 0}
+							<div class="flex flex-wrap gap-1.5">
+								{#each article.tags ?? [] as t (t.id)}
+									{#if tagHref}
+										<Badge
+											variant="secondary"
+											href={tagHref(t.id)}
+											title={`Show all stories tagged ${t.name}`}
+											onclick={() => onTagClick?.()}
+											class="max-w-full justify-start"
+										>
+											<span class="min-w-0 truncate">{t.name}</span>
+										</Badge>
+									{:else}
+										<Badge variant="secondary" class="max-w-full justify-start"
+											><span class="min-w-0 truncate">{t.name}</span></Badge
+										>
+									{/if}
+								{/each}
+							</div>
+						{/if}
+						<Separator />
+						{#if article.imageUrl}
+							<img
+								src={article.imageUrl}
+								alt={article.title}
+								class="aspect-video w-full rounded-xl bg-muted object-cover"
+							/>
+						{/if}
+						{#if article.contentHtml}
+							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+							<div
+								class="prose max-w-none text-base leading-relaxed text-foreground prose-neutral sm:text-sm dark:prose-invert"
+							>
+								{@html article.contentHtml}
+							</div>
+						{:else if article.excerpt}
+							<p class="text-base leading-relaxed text-foreground">{article.excerpt}</p>
+						{/if}
+						{#if showFulltext}
+							<div class="flex flex-col gap-2">
+								<div>
+									<Button variant="outline" onclick={loadFulltext} disabled={fulltextBusy}>
+										{fulltextBusy ? 'Fetching full text…' : 'Load full text'}
+									</Button>
+								</div>
+								{#if fulltextError}
+									<p class="text-sm text-destructive">{fulltextError}</p>
+								{:else}
+									<p class="text-xs text-muted-foreground">
+										This feed only ships an excerpt — fetch the full article from the original site.
+									</p>
+								{/if}
+							</div>
+						{/if}
+						<div class="pt-4">
+							<Button variant="outline" href={article.link} target="_blank">
+								<ExternalLink /> Read original
 							</Button>
 						</div>
-						{#if fulltextError}
-							<p class="text-sm text-destructive">{fulltextError}</p>
-						{:else}
-							<p class="text-xs text-muted-foreground">
-								This feed only ships an excerpt — fetch the full article from the original site.
-							</p>
-						{/if}
-					</div>
-				{/if}
-				<div class="pt-4">
-					<Button variant="outline" href={article.link} target="_blank">
-						<ExternalLink /> Read original
-					</Button>
+					</article>
 				</div>
-			</article>
+			{/key}
 		</div>
 		<EditTagsDialog
 			bind:open={tagsOpen}
