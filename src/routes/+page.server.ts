@@ -2,6 +2,8 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { requireUser } from '$lib/server/guard';
 import { parseSmartRules } from '$lib/collections';
+import { getViewScopeKey } from '$lib/view-prefs';
+import { getViewPrefs, isArticleView, setViewPref } from '$lib/server/view-prefs';
 import {
 	addFeed,
 	createCollection,
@@ -99,6 +101,22 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		}
 		const selectedTags = selected ? await getArticleTags(user.id, selected.id) : [];
 		const tags = await listTags(user.id);
+		// Per-scope layout prefs: never fail the page when the table is
+		// missing (pre-migration DB) — the client falls back to defaults.
+		let viewPrefs: Record<string, string> = {};
+		try {
+			viewPrefs = await getViewPrefs(user.id);
+		} catch (e) {
+			console.error('view prefs load failed', e);
+		}
+		const viewScope = getViewScopeKey({
+			filter,
+			feedId,
+			collectionId,
+			viewId,
+			tagId,
+			query
+		});
 		return {
 			articles: articlesWithTags,
 			selected: selected ? { ...selected, tags: selectedTags } : null,
@@ -108,7 +126,9 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			collectionId: collectionId ?? null,
 			viewId: viewId ?? null,
 			tagId: tagId ?? null,
-			query
+			query,
+			viewPrefs,
+			viewScope
 		};
 	} catch (e) {
 		console.error('feed load failed (db down?)', e);
@@ -122,6 +142,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			viewId: null,
 			tagId: null,
 			query,
+			viewPrefs: {},
+			viewScope: getViewScopeKey({ filter }),
 			dbDown: true
 		};
 	}
@@ -325,5 +347,19 @@ export const actions: Actions = {
 			return fail(400, { message: 'Could not delete tag' });
 		}
 		throw redirect(303, '/?filter=all');
+	},
+	setViewPref: async ({ request, locals }) => {
+		const user = requireUser(locals);
+		const form = await request.formData();
+		const scope = String(form.get('scope') ?? '').trim();
+		const view = String(form.get('view') ?? '').trim();
+		if (!scope || !isArticleView(view)) return fail(400, { message: 'Invalid view pref' });
+		try {
+			await setViewPref(user.id, scope, view);
+		} catch (e) {
+			console.error('setViewPref failed', e);
+			return fail(500, { message: 'Could not save view' });
+		}
+		return { ok: true };
 	}
 };

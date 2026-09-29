@@ -68,7 +68,7 @@ export async function rankTags(
 	if (!isTagRankEnabled()) return uniq.slice(0, limit);
 
 	const title = doc.title ?? '';
-	const docText = `${title}. ${(doc.text ?? '').slice(0, 800)}`.trim();
+	const docText = `${title}. ${(doc.text ?? '').slice(0, 1500)}`.trim();
 	if (!docText) return uniq.slice(0, limit);
 
 	const vectors = await embed([docText, ...uniq]);

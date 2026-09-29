@@ -64,6 +64,20 @@
       "when": 1790313600000,
       "tag": "0008_junk_rsshub_notices",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790674315030,
+      "tag": "0009_material_sebastian_shaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790900000000,
+      "tag": "0010_user_feedback",
+      "breakpoints": true
     }
   ]
 }

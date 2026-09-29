@@ -136,6 +136,26 @@ export const userArticleState = pgTable(
 	]
 );
 
+/** Per-scope article-layout prefs: each feed scope remembers its own view mode. */
+export const userViewPref = pgTable(
+	'user_view_pref',
+	{
+		id: serial('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		/** Scope key from getViewScopeKey (filter:today, collection:12, view:5, feed:7, tag:3, search). */
+		scope: text('scope').notNull(),
+		/** ArticleView string (list/grid/compact/magazine). */
+		view: text('view').notNull(),
+		updatedAt: timestamp('updated_at').notNull().defaultNow()
+	},
+	(t) => [
+		uniqueIndex('user_view_pref_user_scope_idx').on(t.userId, t.scope),
+		index('user_view_pref_user_idx').on(t.userId)
+	]
+);
+
 /** Append-only behavioral log feeding Recommended affinities + future models. */
 export const articleEvent = pgTable(
 	'article_event',
@@ -184,6 +204,30 @@ export const userInterest = pgTable('user_interest', {
 });
 
 /**
+ * Persistent explicit feedback for Recommended ("Not interested", "Don't show
+ * this feed/topic"). Append-only; ranking reads recent rows to build negative
+ * affinity + hard filters. No FKs to articles/feeds: feedback outlives
+ * deleted rows and pre-migration DBs simply read as "no feedback".
+ */
+export const userFeedback = pgTable(
+	'user_feedback',
+	{
+		id: serial('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		/** 'dismiss' = this article; 'mute_feed' / 'mute_topic'. */
+		kind: text('kind').notNull(),
+		articleId: integer('article_id'),
+		feedId: integer('feed_id'),
+		/** Lowercased topic/tag name for 'mute_topic'. */
+		topic: text('topic'),
+		createdAt: timestamp('created_at').notNull().defaultNow()
+	},
+	(t) => [index('user_feedback_user_created_idx').on(t.userId, t.createdAt)]
+);
+
+/**
  * Offline-eval log for the Recommended feed. Written only when
  * RECOMMEND_LOG_SCORES=1 (see refresh.getRecommendedArticles) — never on the
  * hot path by default. No FKs: log rows outlive deleted articles.
@@ -213,6 +257,10 @@ export type UserArticleState = typeof userArticleState.$inferSelect;
 export type NewUserArticleState = typeof userArticleState.$inferInsert;
 export type ArticleEvent = typeof articleEvent.$inferSelect;
 export type NewArticleEvent = typeof articleEvent.$inferInsert;
+export type UserViewPref = typeof userViewPref.$inferSelect;
+export type NewUserViewPref = typeof userViewPref.$inferInsert;
 export type ArticleEmbedding = typeof articleEmbedding.$inferSelect;
+export type UserFeedback = typeof userFeedback.$inferSelect;
+export type NewUserFeedback = typeof userFeedback.$inferInsert;
 export type UserInterest = typeof userInterest.$inferSelect;
 export type RecommendScoreLog = typeof recommendScoreLog.$inferSelect;

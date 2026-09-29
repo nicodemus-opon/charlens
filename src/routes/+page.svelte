@@ -8,6 +8,7 @@
 	import * as Resizable from '$lib/components/ui/resizable/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { shouldShowFocus, type ArticleView } from '$lib/article.js';
+	import { defaultViewForScope, getViewScopeKey } from '$lib/view-prefs.js';
 	import ArticleBrowser from '$lib/components/article-browser.svelte';
 	import ArticleList from '$lib/components/article-list.svelte';
 	import ArticleViewToggle from '$lib/components/article-view-toggle.svelte';
@@ -23,9 +24,11 @@
 	let { data } = $props();
 
 	// Reader prefs are device-local but keyed by user so accounts sharing a
-	// browser never leak view/panel/focus state into each other.
+	// browser never leak view/panel/focus state into each other. Article
+	// layouts persist per scope in the DB (`user_view_pref`); the legacy
+	// global localStorage key below is only a one-time fallback for scopes
+	// without a saved pref.
 	const userKey = $derived(data.user?.id ?? 'anonymous');
-	const viewKey = $derived(`${VIEW_BASE}:${userKey}`);
 	const panelKey = $derived(`${PANEL_BASE}:${userKey}`);
 	const focusKey = $derived(`${FOCUS_BASE}:${userKey}`);
 
@@ -33,22 +36,60 @@
 		return data.user?.id ?? 'anonymous';
 	}
 
-	function isArticleView(value: string | null): value is ArticleView {
-		return value === 'list' || value === 'grid' || value === 'compact';
+	function isArticleView(value: unknown): value is ArticleView {
+		return value === 'list' || value === 'grid' || value === 'compact' || value === 'magazine';
+	}
+
+	function readLegacyView(): ArticleView | null {
+		if (!browser) return null;
+		try {
+			const stored = localStorage.getItem(`${VIEW_BASE}:${prefsUserId()}`);
+			if (isArticleView(stored)) return stored;
+		} catch {
+			// Storage unavailable (private mode, blocked) — no fallback.
+		}
+		return null;
+	}
+
+	/** Effective layout for a scope: saved pref, else the scope default
+	 * (magazine for Today / Read later / Recommended, with the legacy
+	 * global as fallback everywhere else). */
+	function viewForScope(scope: string, prefs: Record<string, unknown>): ArticleView {
+		const saved = prefs[scope];
+		if (isArticleView(saved)) return saved;
+		if (defaultViewForScope(scope) === 'magazine') return 'magazine';
+		return readLegacyView() ?? 'list';
+	}
+
+	function initialPrefs(): Record<string, ArticleView> {
+		const prefs: Record<string, ArticleView> = {};
+		for (const [scope, view] of Object.entries(data.viewPrefs ?? {})) {
+			if (isArticleView(view)) prefs[scope] = view;
+		}
+		return prefs;
+	}
+
+	function initialScope(): string {
+		return (
+			data.viewScope ??
+			getViewScopeKey({
+				filter: data.filter,
+				feedId: data.feedId,
+				collectionId: data.collectionId,
+				viewId: data.viewId,
+				tagId: data.tagId,
+				query: data.query
+			})
+		);
 	}
 
 	// Synchronous browser reads so the first client render already uses the
 	// saved prefs — reading them in `onMount` instead paints the defaults
 	// first and visibly flickers into the saved view/panel/focus state.
-	function readStoredView(): ArticleView {
-		if (!browser) return 'list';
-		try {
-			const stored = localStorage.getItem(`${VIEW_BASE}:${prefsUserId()}`);
-			if (isArticleView(stored)) return stored;
-		} catch {
-			// Storage unavailable (private mode, blocked) — use the default.
-		}
-		return 'list';
+	const bootPrefs = initialPrefs();
+	const bootScope = initialScope();
+	function bootView(): ArticleView {
+		return viewForScope(bootScope, bootPrefs);
 	}
 
 	function readStoredPanel(): boolean {
@@ -71,9 +112,12 @@
 		return true;
 	}
 
-	let view = $state<ArticleView>(readStoredView());
+	let viewPrefs = $state<Record<string, ArticleView>>(bootPrefs);
+	let view = $state<ArticleView>(bootView());
 	let panelOpen = $state(readStoredPanel());
 	let focusMode = $state(readStoredFocus());
+	/** Scope the current `view` belongs to — switching scopes swaps the layout. */
+	let lastScope = $state(bootScope);
 	// Refresh-button feedback: spins the icon for the round trip only.
 	let refreshing = $state(false);
 	// False during SSR and the first client paint: the view-dependent lists
@@ -123,11 +167,58 @@
 		};
 	});
 
+	/** Current feed scope — each scope remembers its own layout. */
+	const viewScope = $derived(
+		data.viewScope ??
+			getViewScopeKey({
+				filter: data.filter,
+				feedId: data.feedId,
+				collectionId: data.collectionId,
+				viewId: data.viewId,
+				tagId: data.tagId,
+				query: data.query
+			})
+	);
+
+	let saveTimer: ReturnType<typeof setTimeout> | undefined;
+
+	// Switching scopes (sidebar, palette, bottom nav) swaps to that scope's
+	// saved layout, or its default when never customized. Server prefs only
+	// fill scopes not yet seen locally so an unsaved toggle never loses.
+	$effect(() => {
+		const serverPrefs = data.viewPrefs ?? {};
+		for (const [scope, saved] of Object.entries(serverPrefs)) {
+			if (isArticleView(saved) && viewPrefs[scope] === undefined) {
+				viewPrefs[scope] = saved;
+			}
+		}
+		const scope = viewScope;
+		if (scope !== lastScope) {
+			lastScope = scope;
+			const next = viewPrefs[scope] ?? defaultViewForScope(scope);
+			if (next !== view) view = next;
+		}
+	});
+
 	$effect(() => {
 		if (!prefsRestored) return;
-		localStorage.setItem(viewKey, view);
 		localStorage.setItem(panelKey, panelOpen ? 'open' : 'closed');
 		localStorage.setItem(focusKey, focusMode ? 'on' : 'off');
+		// Persisting the layout is scope-local: toggling the view saves it
+		// for the current scope only, debounced so rapid toggles save once.
+		const scope = viewScope;
+		const current = view;
+		if (viewPrefs[scope] === current) return;
+		viewPrefs[scope] = current;
+		clearTimeout(saveTimer);
+		saveTimer = setTimeout(() => {
+			const form = new FormData();
+			form.set('scope', scope);
+			form.set('view', current);
+			fetch('?/setViewPref', { method: 'POST', body: form }).catch((e) =>
+				console.error('view pref save failed', e)
+			);
+		}, 300);
 	});
 
 	// Focus automation: the article list is shown on its own when no article is
@@ -338,9 +429,12 @@
 				</div>
 			</div>
 			{#if prefsRestored}
+				<!-- The side pane is too narrow for the front-page hero, so the
+				magazine view falls back to cards here; the wide browser pane
+				still renders the full magazine below. -->
 				<ArticleList
 					articles={data.articles}
-					{view}
+					view={view === 'magazine' ? 'grid' : view}
 					gridClass="grid-cols-1"
 					onSelect={() => {
 						if (focusMode) panelOpen = false;

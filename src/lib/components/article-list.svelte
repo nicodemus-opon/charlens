@@ -135,13 +135,19 @@
 			{@const isSelected = selectedId === String(a.id)}
 			<div
 				class={cn(
-					'flex items-center gap-2 border-b border-border px-4 py-2 transition-colors hover:bg-accent sm:px-5 sm:py-1.5',
+					'flex items-center gap-2 border-b border-border px-4 py-3 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-1.5',
 					isSelected && 'bg-accent'
 				)}
 			>
 				<form method="POST" action="/?/toggleSaved" use:enhance>
 					<input type="hidden" name="id" value={a.id} />
-					<Button variant="ghost" size="icon-sm" type="submit" aria-label="Save for later">
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						class="min-h-11 min-w-11 md:min-h-0 md:min-w-0"
+						type="submit"
+						aria-label="Save for later"
+					>
 						{#if a.isSaved}<BookmarkCheck />{:else}<Bookmark />{/if}
 					</Button>
 				</form>
@@ -180,7 +186,7 @@
 				onclick={() => onSelect?.(a.id)}
 				aria-current={isSelected ? 'true' : undefined}
 				class={cn(
-					'flex w-full items-start gap-4 border-b border-border px-4 py-3 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none sm:px-5 sm:py-4',
+					'flex w-full items-start gap-4 border-b border-border px-4 py-3 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none active:bg-accent sm:px-5 sm:py-4',
 					isSelected && 'bg-accent'
 				)}
 			>

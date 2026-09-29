@@ -33,7 +33,12 @@
 		<Dialog.Description>{description}</Dialog.Description>
 	</Dialog.Header>
 	<Dialog.Content
-		class={cn('top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0', className)}
+		class={cn(
+			'top-1/3 translate-y-0 overflow-hidden rounded-xl! p-0',
+			// Palette is the only mobile search: near-full-height bottom sheet.
+			'max-md:top-auto max-md:max-h-[92dvh] max-md:min-h-[70dvh]',
+			className
+		)}
 		{showCloseButton}
 		{portalProps}
 	>

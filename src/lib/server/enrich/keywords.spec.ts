@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { extractEntities, extractTopics, textFromHtml } from './keywords';
+import {
+	dfKey,
+	extractEntities,
+	extractTopics,
+	isCorpusBoilerplate,
+	textFromHtml
+} from './keywords';
 
 describe('extractTopics', () => {
 	it('extracts tech keywords from an AI infrastructure article', () => {
@@ -229,6 +235,128 @@ describe('extractTopics junk regression', () => {
 		});
 		const joined = out.tags.join(' ');
 		expect(joined).not.toMatch(/related topics|china eye/);
+	});
+
+	it('tags body-frequent phrases even when the title is generic (v6 unanchored)', () => {
+		const out = extractTopics({
+			title: 'Daily roundup',
+			text: 'Menengai geothermal expansion adds capacity. The geothermal plant output feeds the national grid. Kenya grid operator confirmed the geothermal output. Geothermal expansion near Menengai finishes next year. Menengai output grows.'
+		});
+		const joined = out.tags.join(' ');
+		// Body-sourced tags appear (previously impossible without title words)…
+		expect(joined).toMatch(/menengai|geothermal/);
+		// …and at least one tag is body-only, not from the headline.
+		expect(out.tags.some((t) => !'daily roundup'.includes(t))).toBe(true);
+	});
+});
+
+describe('extractTopics structural anti-boilerplate (v7, no word lists)', () => {
+	it('never tags code-fence or lone-header words (install, npm)', () => {
+		const out = extractTopics({
+			title: 'abue-ammar/tinycast',
+			text:
+				'Tinycast is a tiny screencast tool for macOS. Press the hotkey to start recording. ' +
+				'## Install\n' +
+				'```\nnpm install -g tinycast\nnpm run build\n```\n' +
+				'To install, see the docs. ## Usage\nRun tinycast from Spotlight. ## License\nMIT.'
+		});
+		const joined = out.tags.join(' ');
+		expect(joined).not.toMatch(/\binstall\b/);
+		expect(joined).not.toMatch(/\bnpm\b/);
+		expect(joined).toMatch(/tinycast|hotkey|recording/);
+	});
+
+	it('vetoes corpus-wide boilerplate adaptively (no corpus → no veto)', () => {
+		const text =
+			'Install the tool, then install the plugin. Installation takes a minute. ' +
+			'Re-install any time. Install, install, install.';
+		const corpus = { size: 30, docFreq: new Map([['install', 28]]) };
+		const vetoed = extractTopics({ title: 'Some Tool', text }, 5, corpus);
+		expect(vetoed.tags.join(' ')).not.toMatch(/\binstall\b/);
+		const unvetoed = extractTopics({ title: 'Some Tool', text }, 5);
+		expect(unvetoed.tags.join(' ')).toMatch(/\binstall\b/);
+	});
+
+	it('is inert on tiny corpora (insufficient signal)', () => {
+		expect(isCorpusBoilerplate('install', { size: 5, docFreq: new Map([['install', 5]]) })).toBe(
+			false
+		);
+		expect(isCorpusBoilerplate('install', { size: 30, docFreq: new Map([['install', 28]]) })).toBe(
+			true
+		);
+		expect(isCorpusBoilerplate('install', { size: 30, docFreq: new Map([['install', 3]]) })).toBe(
+			false
+		);
+		expect(isCorpusBoilerplate('install', undefined)).toBe(false);
+	});
+
+	it('folds inflections so installed/installation count as install', () => {
+		expect(dfKey('installed')).toBe('install');
+		expect(dfKey('installation')).toBe('install');
+		expect(dfKey('installer')).toBe('install');
+		// …while short stems are left alone (docker/server keep their shape).
+		expect(dfKey('docker')).toBe('docker');
+		expect(dfKey('server')).toBe('server');
+		const corpus = { size: 30, docFreq: new Map([['install', 28]]) };
+		expect(isCorpusBoilerplate('installed', corpus)).toBe(true);
+		const out = extractTopics(
+			{
+				title: 'JetBrains/go-modern-guidelines',
+				text: 'Modern Go guidelines. Installed via the plugin. Installed size is small. Get it installed today. Installed and verified.'
+			},
+			5,
+			corpus
+		);
+		expect(out.tags.join(' ')).not.toMatch(/\binstalled\b/);
+	});
+
+	it('never tags stutter phrases like Timesfm Timesfm', () => {
+		const out = extractTopics({
+			title: 'google-research/timesfm',
+			text: 'Timesfm Timesfm is a forecasting model. Timesfm Timesfm beats baselines. Timesfm Timesfm scales.'
+		});
+		expect(out.tags).not.toContain('timesfm timesfm');
+	});
+
+	it('never tags the owner shard of owner/repo titles', () => {
+		const corpus = { size: 30, docFreq: new Map([['awesome', 25]]) };
+		const out = extractTopics(
+			{
+				title: 'vinta/awesome-python',
+				text: 'Awesome Python is a curated list of Python frameworks. Vinta started awesome-python years ago. Python developers love it.'
+			},
+			5,
+			corpus
+		);
+		const words = out.tags.flatMap((t) => t.split(' '));
+		// Owner username never tags (structural position veto)…
+		expect(words).not.toContain('vinta');
+		// …standalone "awesome" dies via the corpus veto; the repo-name
+		// bigram itself is the subject and may stay.
+		expect(out.tags).not.toContain('awesome');
+		expect(out.tags.join(' ')).toMatch(/python/);
+	});
+
+	it('rejects title-alone words with zero body evidence', () => {
+		const out = extractTopics({
+			title: 'Something Spectacular Happens',
+			text: 'The weather today is mild. Markets closed flat all session.'
+		});
+		const words = out.tags.flatMap((t) => t.split(' '));
+		expect(words).not.toContain('spectacular');
+		expect(words).not.toContain('something');
+		expect(words).not.toContain('happens');
+	});
+
+	it('drops pre/code/nav blocks from HTML input', () => {
+		const out = textFromHtml(
+			'<nav><a>Code</a><a>Issues</a><a>Sign in</a></nav>' +
+				'<h2>Install</h2><h2>Install</h2>' +
+				'<pre>npm install -g tinycast</pre>' +
+				'<p>Tinycast records the screen. Tinycast is tiny. Tinycast rocks.</p>'
+		);
+		expect(out).not.toMatch(/npm install/);
+		expect(out.match(/\bInstall\b/g)?.length ?? 0).toBeLessThanOrEqual(1);
 	});
 });
 

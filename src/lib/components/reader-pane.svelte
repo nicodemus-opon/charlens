@@ -7,7 +7,6 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import {
 		BookOpen,
@@ -15,7 +14,6 @@
 		BookmarkCheck,
 		CheckCheck,
 		ChevronLeft,
-		Ellipsis,
 		ExternalLink,
 		Eye,
 		EyeOff,
@@ -72,9 +70,31 @@
 	let fulltextError = $state<string | null>(null);
 	let tagsOpen = $state(false);
 	let scrollEl: HTMLDivElement | null = $state(null);
-	/** Hidden forms backing the mobile overflow menu (menu items can't post forms). */
+	/** Hidden forms backing the mobile toolbar (buttons can't post forms). */
 	let saveForm: HTMLFormElement | null = $state(null);
 	let readForm: HTMLFormElement | null = $state(null);
+
+	// Edge-swipe back: a short rightward swipe starting at the left edge
+	// leaves the reader. Edge-only so scrolling and selection never fight it.
+	const EDGE_PX = 32;
+	const SWIPE_DX = 72;
+	const SWIPE_DY = 48;
+	const SWIPE_MS = 500;
+	let swipeStart: { x: number; y: number; t: number } | null = null;
+	function onTouchStart(e: TouchEvent) {
+		const t = e.touches[0];
+		if (t.clientX < EDGE_PX) swipeStart = { x: t.clientX, y: t.clientY, t: performance.now() };
+		else swipeStart = null;
+	}
+	function onTouchEnd(e: TouchEvent) {
+		const s = swipeStart;
+		swipeStart = null;
+		if (!s || !showBack) return;
+		const t = e.changedTouches[0];
+		const dx = t.clientX - s.x;
+		const dy = Math.abs(t.clientY - s.y);
+		if (dx > SWIPE_DX && dy < SWIPE_DY && performance.now() - s.t < SWIPE_MS) onBack?.();
+	}
 
 	function sendEvent(id: number, kind: string, value = 0) {
 		if (!browser) return;
@@ -160,6 +180,7 @@
 					<Button
 						variant="ghost"
 						size="icon-sm"
+						class="min-h-11 min-w-11"
 						onclick={onBack}
 						aria-label="Close article and show list"
 						title="Close article and show list"
@@ -177,18 +198,19 @@
 					</p>
 				{/if}
 			</div>
+			<Toggle
+				variant="outline"
+				size="sm"
+				class="min-h-11 min-w-11 shrink-0 sm:min-h-0 sm:min-w-0"
+				aria-label="Focus mode: hide the list while reading"
+				title={focusMode ? 'Focus mode on' : 'Focus mode off'}
+				pressed={focusMode}
+				onPressedChange={(v) => onFocusChange?.(v)}
+			>
+				{#if focusMode}<Eye />{:else}<EyeOff />{/if}
+				<span class="hidden sm:inline">Focus</span>
+			</Toggle>
 			<div class="hidden shrink-0 items-center gap-1 sm:flex">
-				<Toggle
-					variant="outline"
-					size="sm"
-					aria-label="Focus mode: hide the list while reading"
-					title={focusMode ? 'Focus mode on' : 'Focus mode off'}
-					pressed={focusMode}
-					onPressedChange={(v) => onFocusChange?.(v)}
-				>
-					{#if focusMode}<Eye />{:else}<EyeOff />{/if}
-					<span class="hidden sm:inline">Focus</span>
-				</Toggle>
 				<form method="POST" action="/?/toggleSaved" use:enhance>
 					<input type="hidden" name="id" value={article.id} />
 					<Button variant="ghost" size="icon-sm" type="submit" aria-label="Save for later">
@@ -220,61 +242,22 @@
 					<ExternalLink />
 				</Button>
 			</div>
-			<!-- Phones get focus + one overflow menu instead of five icon buttons. -->
-			<div class="flex shrink-0 items-center gap-1 sm:hidden">
-				<Toggle
-					variant="outline"
-					size="sm"
-					aria-label="Focus mode: hide the list while reading"
-					title={focusMode ? 'Focus mode on' : 'Focus mode off'}
-					pressed={focusMode}
-					onPressedChange={(v) => onFocusChange?.(v)}
-				>
-					{#if focusMode}<Eye />{:else}<EyeOff />{/if}
-				</Toggle>
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}
-							<Button
-								{...props}
-								variant="ghost"
-								size="icon-sm"
-								aria-label="Article actions"
-								title="Article actions"
-							>
-								<Ellipsis />
-							</Button>
-						{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content align="end">
-						<DropdownMenu.Item onSelect={() => saveForm?.requestSubmit()}>
-							{#if article.isSaved}<BookmarkCheck />{:else}<Bookmark />{/if}
-							{article.isSaved ? 'Saved for later' : 'Save for later'}
-						</DropdownMenu.Item>
-						<DropdownMenu.Item onSelect={() => readForm?.requestSubmit()}>
-							<CheckCheck />
-							Mark as read
-						</DropdownMenu.Item>
-						<DropdownMenu.Item onSelect={() => (tagsOpen = true)}>
-							<Tag />
-							Edit tags
-						</DropdownMenu.Item>
-						<DropdownMenu.Item onSelect={() => window.open(article.link, '_blank', 'noopener')}>
-							<ExternalLink />
-							Open original
-						</DropdownMenu.Item>
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
-			</div>
 		</div>
-		<!-- Menu-only posts: DropdownMenu items can't submit forms directly. -->
+		<!-- Toolbar-only posts: toolbar buttons can't submit forms directly. -->
 		<form method="POST" action="/?/toggleSaved" use:enhance class="hidden" bind:this={saveForm}>
 			<input type="hidden" name="id" value={article.id} />
 		</form>
 		<form method="POST" action="/?/markRead" use:enhance class="hidden" bind:this={readForm}>
 			<input type="hidden" name="id" value={article.id} />
 		</form>
-		<div class="min-h-0 flex-1 overflow-y-auto" bind:this={scrollEl}>
+		<div
+			class="min-h-0 flex-1 overflow-y-auto"
+			role="region"
+			aria-label="Article"
+			bind:this={scrollEl}
+			ontouchstart={onTouchStart}
+			ontouchend={onTouchEnd}
+		>
 			{#key article.id}
 				<div
 					in:fly={{ y: reduceMotion ? 0 : 8, duration: reduceMotion ? 0 : 180, easing: cubicOut }}
@@ -344,7 +327,7 @@
 								{/if}
 							</div>
 						{/if}
-						<div class="pt-4">
+						<div class="hidden pt-4 sm:block">
 							<Button variant="outline" href={article.link} target="_blank">
 								<ExternalLink /> Read original
 							</Button>
@@ -352,6 +335,49 @@
 					</article>
 				</div>
 			{/key}
+		</div>
+		<!-- Thumb-reach toolbar (phones): icon-only primary actions, safe-area
+			padded. Desktop keeps its top-bar icon row. -->
+		<div
+			class="flex shrink-0 items-stretch gap-1 border-t border-border bg-background px-2 pt-2 pb-safe sm:hidden"
+			role="toolbar"
+			aria-label="Article actions"
+		>
+			<Button
+				variant="ghost"
+				onclick={() => saveForm?.requestSubmit()}
+				aria-label={article.isSaved ? 'Saved for later' : 'Save for later'}
+				aria-pressed={article.isSaved}
+				class="min-h-11 min-w-0 flex-1"
+			>
+				{#if article.isSaved}<BookmarkCheck />{:else}<Bookmark />{/if}
+			</Button>
+			<Button
+				variant="ghost"
+				onclick={() => readForm?.requestSubmit()}
+				aria-label="Mark as read"
+				class="min-h-11 min-w-0 flex-1"
+			>
+				<CheckCheck />
+			</Button>
+			<Button
+				variant="ghost"
+				onclick={() => (tagsOpen = true)}
+				aria-label="Edit tags"
+				class="min-h-11 min-w-0 flex-1"
+			>
+				<Tag />
+			</Button>
+			<Button
+				variant="ghost"
+				href={article.link}
+				target="_blank"
+				rel="noopener"
+				aria-label="Open original"
+				class="min-h-11 min-w-0 flex-1"
+			>
+				<ExternalLink />
+			</Button>
 		</div>
 		<EditTagsDialog
 			bind:open={tagsOpen}

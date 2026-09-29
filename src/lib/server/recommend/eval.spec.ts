@@ -182,6 +182,57 @@ describe('golden: diversity survives relevance', () => {
 	});
 });
 
+describe('golden: negative feedback demotes', () => {
+	it('a dismissed-topic lookalike ranks below an equivalent fresh story', () => {
+		const aff = buildAffinityMaps({
+			feedCounts: new Map([[7, 25]]),
+			tagCounts: new Map([['ai chips', 18]]),
+			authorCounts: new Map(),
+			negTagCounts: new Map([['ai chips', 8]])
+		});
+		const base = {
+			feedId: 9,
+			author: null,
+			publishedAt: new Date(NOW - HOUR),
+			isRead: false,
+			isSaved: false,
+			semanticSimilarity: 0.7
+		};
+		const penalized = scoreCandidate({ ...base, id: 1, tags: ['ai chips'] }, aff, {
+			now: NOW
+		});
+		const clean = scoreCandidate({ ...base, id: 2, tags: ['gardening'] }, aff, {
+			now: NOW
+		});
+		// Equal semantic match, but ai chips carries a strong negative while
+		// gardening is neutral: the penalized lookalike must lose.
+		expect(clean.score).toBeGreaterThan(penalized.score);
+		expect(penalized.components.negative).toBeLessThan(0);
+	});
+});
+
+describe('golden: session interest lifts now-topics', () => {
+	it('a session-matching story beats a long-term-only match', () => {
+		const aff = techUser();
+		const base = {
+			feedId: 9,
+			author: null,
+			publishedAt: new Date(NOW - HOUR),
+			isRead: false,
+			isSaved: false,
+			tags: ['sourdough'],
+			semanticSimilarity: 0.5
+		};
+		const plain = scoreCandidate({ ...base, id: 1 }, aff, { now: NOW });
+		const session = scoreCandidate({ ...base, id: 2 }, aff, {
+			now: NOW,
+			sessionBoost: 0.9
+		});
+		expect(session.score).toBeGreaterThan(plain.score);
+		expect(session.reasons).toContain('Trending in your reading');
+	});
+});
+
 describe('golden: embedding-free fallback', () => {
 	it('still ranks sensibly with no semantic signal at all', () => {
 		const aff = techUser();

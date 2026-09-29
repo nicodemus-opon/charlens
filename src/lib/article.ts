@@ -19,8 +19,8 @@ export interface ArticleRow {
 	tags: TagRef[];
 }
 
-/** How the article list is rendered. `compact` is the dense, one-line table-style view. */
-export type ArticleView = 'list' | 'grid' | 'compact';
+/** How the article list is rendered. `compact` is the dense, one-line table-style view, `magazine` is the news front-page view. */
+export type ArticleView = 'list' | 'grid' | 'compact' | 'magazine';
 
 /**
  * Focus-mode decision helper (unit-tested).

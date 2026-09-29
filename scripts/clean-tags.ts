@@ -1,8 +1,13 @@
-// One-off junk-tag cleanup + re-tag with the v3 extractor.
+// One-off junk-tag cleanup + re-tag with the v6 extractor.
 //
 // Usage:
 //   pnpm exec tsx scripts/clean-tags.ts            # dry run (no writes)
 //   pnpm exec tsx scripts/clean-tags.ts --apply    # delete junk, re-tag, drop orphans
+//
+// NOTE: for the full v6 backfill (unanchored tags + closed topic taxonomy +
+// stale-link reconciliation) prefer scripts/retopic.ts --apply. This script
+// remains as the junk-tag sweeper; its planned topics use the sync keyword
+// fallback (no model) while enrichArticle() writes semantic topics.
 //
 // Rules:
 // - A tag is JUNK when it matches extractor chrome patterns: exact denylist,
@@ -23,6 +28,9 @@ import { and, eq, sql } from 'drizzle-orm';
 import { article, articleEmbedding, feed } from '../src/lib/server/db/feeds.schema';
 import { articleTag, tag } from '../src/lib/server/db/tags.schema';
 import { extractTopics, textFromHtml } from '../src/lib/server/enrich/keywords';
+import { computeDocFreq } from '../src/lib/server/enrich/keywords';
+import { buildLabelSet } from '../src/lib/server/enrich/labels';
+import { classifyKeywordTopics } from '../src/lib/server/enrich/topics';
 
 const APPLY = process.argv.includes('--apply');
 
@@ -190,12 +198,29 @@ async function main() {
 	const feeds = await db.select({ id: feed.id, userId: feed.userId }).from(feed);
 	const userByFeed = new Map(feeds.map((f) => [f.id, f.userId]));
 
-	// New tags per article under the v2 extractor (computed in both modes).
+	// New tags per article under the v6 extractor (computed in both modes).
+	// Topics and tags are one label set (labels.ts): taxonomy buckets lead,
+	// specifics fill the rest. The sync keyword fallback stands in for the
+	// live enrich path's semantic topics; the corpus snapshot powers the
+	// adaptive boilerplate veto.
+	const stripped = new Map<number, string>();
+	for (const a of articles) {
+		stripped.set(a.id, textFromHtml(a.contentHtml).slice(0, 5000) || (a.excerpt ?? ''));
+	}
+	const corpus = {
+		size: articles.length,
+		docFreq: computeDocFreq(articles.map((a) => `${a.title ?? ''} ${stripped.get(a.id) ?? ''}`))
+	};
 	const planned = new Map<number, { tags: string[]; topics: string[]; entities: string[] }>();
 	for (const a of articles) {
-		const text = textFromHtml(a.contentHtml).slice(0, 5000) || (a.excerpt ?? '');
-		const out = extractTopics({ title: a.title, text });
-		planned.set(a.id, { tags: out.tags, topics: out.topics, entities: out.entities });
+		const text = stripped.get(a.id) ?? '';
+		const out = extractTopics({ title: a.title, text }, 12, corpus);
+		const labels = buildLabelSet({
+			topics: classifyKeywordTopics(a.title, text),
+			tags: out.tags,
+			entities: out.entities
+		});
+		planned.set(a.id, { tags: labels, topics: labels, entities: out.entities });
 	}
 	const emptyCount = [...planned.values()].filter((p) => p.tags.length === 0).length;
 	console.log(`articles=${articles.length} would-have-zero-keyword-tags=${emptyCount}`);

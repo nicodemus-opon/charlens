@@ -10,8 +10,10 @@ import {
 } from '$lib/server/db/feeds.schema';
 import { articleTag, tag } from '$lib/server/db/tags.schema';
 import { normalizeTagName } from '$lib/tags';
-import { extractTopics, textFromHtml } from './keywords';
+import { computeDocFreq, extractTopics, textFromHtml, type CorpusStats } from './keywords';
 import { rankTags } from './tag-rank';
+import { buildLabelSet } from './labels';
+import { classifyArticleTopics } from './topics';
 import {
 	extractKeyphrases,
 	isDefaultUnconvertedModel,
@@ -24,7 +26,7 @@ import {
 	interactionWeight,
 	timeDecay
 } from '$lib/server/recommend/score';
-import { embedText } from './embeddings';
+import { embedText, getEmbedModel } from './embeddings';
 
 /** Local find-or-create (mirrors refresh.ensureTag without the import cycle). */
 async function ensureTagLocal(userId: string, name: string): Promise<number | null> {
@@ -104,6 +106,34 @@ function parseStrings(value: unknown): string[] {
 	return value.filter((v): v is string => typeof v === 'string' && v.length > 0);
 }
 
+// Corpus document-frequency snapshot for the adaptive boilerplate veto:
+// words spread across YOUR corpus ("install" on repo feeds) stop tagging,
+// while the same words on other corpora are untouched. Cached per process
+// (TTL 15 min, newest 500 articles) so per-article enrich stays cheap; any
+// failure degrades to "no snapshot" (veto off, structural layers still hold).
+let corpusCache: { at: number; stats: CorpusStats } | null = null;
+const CORPUS_TTL_MS = 15 * 60 * 1000;
+
+async function getCorpusStats(): Promise<CorpusStats> {
+	const now = Date.now();
+	if (corpusCache && now - corpusCache.at < CORPUS_TTL_MS) return corpusCache.stats;
+	try {
+		const rows = await db
+			.select({ title: article.title, excerpt: article.excerpt, contentHtml: article.contentHtml })
+			.from(article)
+			.orderBy(desc(article.id))
+			.limit(500);
+		const texts = rows.map(
+			(r) => `${r.title ?? ''} ${textFromHtml(r.contentHtml).slice(0, 2000) || (r.excerpt ?? '')}`
+		);
+		const stats: CorpusStats = { size: texts.length, docFreq: computeDocFreq(texts) };
+		corpusCache = { at: now, stats };
+		return stats;
+	} catch {
+		return { size: 0, docFreq: new Map() };
+	}
+}
+
 /** Cross-module access to the stored-embedding parsers (used by refresh ranking). */
 export {
 	parseVector as parseStoredVector,
@@ -112,12 +142,18 @@ export {
 };
 
 /**
- * Enrich one article: extract tags/topics/entities, attach up to 5 tags
- * (idempotent, never removes user tags), persist topics/entities, and embed
- * the text into the article_embedding row. The embed step degrades to null
- * when the model is unavailable — tags still write.
+ * Enrich one article: attach up to 5 auto-labels (idempotent, never removes
+ * user tags), persist topics/entities, and embed the text into the
+ * article_embedding row. The embed step degrades to null when the model is
+ * unavailable — labels still write.
+ *
+ * Topics and tags are the SAME label set (see labels.ts): taxonomy buckets
+ * lead, body-specific tags fill the rest. The same array is written to
+ * article_tag rows and article_embedding.topics.
  */
-export async function enrichArticle(articleId: number): Promise<boolean> {
+export async function enrichArticle(
+	articleId: number
+): Promise<{ tags: string[]; topics: string[] } | null> {
 	const rows = await db
 		.select({
 			id: article.id,
@@ -130,7 +166,7 @@ export async function enrichArticle(articleId: number): Promise<boolean> {
 		.where(eq(article.id, articleId))
 		.limit(1);
 	const row = rows[0];
-	if (!row) return false;
+	if (!row) return null;
 
 	const owner = await db
 		.select({ userId: feed.userId })
@@ -138,12 +174,14 @@ export async function enrichArticle(articleId: number): Promise<boolean> {
 		.where(eq(feed.id, row.feedId))
 		.limit(1);
 	const userId = owner[0]?.userId;
-	if (!userId) return false;
+	if (!userId) return null;
 
 	const text = textFromHtml(row.contentHtml).slice(0, 5000) || (row.excerpt ?? '');
 	// keywords.ts is the candidate generator (over-produce at limit 12);
 	// tag-rank.ts does the semantic rerank/filter down to the final 5.
-	const extracted = extractTopics({ title: row.title, text }, 12);
+	// The corpus snapshot powers the adaptive boilerplate veto.
+	const corpus = await getCorpusStats();
+	const extracted = extractTopics({ title: row.title, text }, 12, corpus);
 	let candidates = extracted.tags;
 	// extractKeyphrases() already no-ops when disabled, but skip the call
 	// entirely for the known-unconvertible default id: a missing ONNX file
@@ -158,10 +196,21 @@ export async function enrichArticle(articleId: number): Promise<boolean> {
 		candidates = [...candidates, ...kp.filter((k) => !covered(k))];
 	}
 	const tags = await rankTags(candidates, { title: row.title, text }, 5);
-	const topics = tags.slice();
 	const entities = extracted.entities;
 
-	for (const name of tags.slice(0, 5)) {
+	const vector = await embedText(`${row.title}\n${row.excerpt ?? ''}\n${text.slice(0, 1500)}`);
+	// Closed-taxonomy buckets summarise the article (semantic cosine when the
+	// embedding exists, keyword fallback otherwise); merged with the specific
+	// tags into the ONE label set written everywhere.
+	const buckets = await classifyArticleTopics(
+		{ title: row.title, text, vector },
+		2,
+		undefined,
+		getEmbedModel()
+	);
+	const labels = buildLabelSet({ topics: buckets, tags, entities });
+
+	for (const name of labels) {
 		const tagId = await ensureTagLocal(userId, name);
 		if (!tagId) continue;
 		await db
@@ -170,7 +219,7 @@ export async function enrichArticle(articleId: number): Promise<boolean> {
 			.onConflictDoNothing({ target: [articleTag.tagId, articleTag.articleId] });
 	}
 
-	const vector = await embedText(`${row.title}\n${row.excerpt ?? ''}\n${text.slice(0, 1500)}`);
+	const topics = labels;
 	const values: typeof articleEmbedding.$inferInsert = {
 		articleId: row.id,
 		topics,
@@ -187,7 +236,7 @@ export async function enrichArticle(articleId: number): Promise<boolean> {
 				? { topics, entities, embedding: vector, embeddedAt: new Date() }
 				: { topics, entities, embeddedAt: new Date() }
 		});
-	return true;
+	return { tags: labels, topics: labels };
 }
 
 /**

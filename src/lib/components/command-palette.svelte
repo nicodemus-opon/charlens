@@ -413,7 +413,9 @@
 		{/if}
 	</Command.List>
 
-	<div class="flex items-center gap-4 border-t border-border p-2 text-xs text-muted-foreground">
+	<div
+		class="hidden items-center gap-4 border-t border-border p-2 text-xs text-muted-foreground md:flex"
+	>
 		<span class="flex items-center gap-1.5">
 			<Kbd>↑</Kbd>
 			<Kbd>↓</Kbd>

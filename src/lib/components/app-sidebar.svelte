@@ -88,6 +88,10 @@
 
 	const sidebar = Sidebar.useSidebar();
 
+	// Drawer menus open downward on phones (a right-side flyout leaves the
+	// narrow drawer); desktop keeps the side flyout.
+	const menuSide = $derived(sidebar.isMobile ? 'bottom' : 'right');
+
 	/** The icon rail hides all labels, so the header and feed list render differently. */
 	const isIconRail = $derived(sidebar.state === 'collapsed' && !sidebar.isMobile);
 
@@ -293,7 +297,7 @@
 					</Sidebar.MenuAction>
 				{/snippet}
 			</DropdownMenu.Trigger>
-			<DropdownMenu.Content side="right" align="start" class="w-56">
+			<DropdownMenu.Content side={menuSide} align="start" class="w-56">
 				<DropdownMenu.Label>{f.title}</DropdownMenu.Label>
 				<DropdownMenu.Separator />
 				<DropdownMenu.Item onSelect={() => openFeed(f)}>
@@ -366,7 +370,7 @@
 				</Sidebar.MenuAction>
 			{/snippet}
 		</DropdownMenu.Trigger>
-		<DropdownMenu.Content side="right" align="start" class="w-56">
+		<DropdownMenu.Content side={menuSide} align="start" class="w-56">
 			<DropdownMenu.Label>{g.name}</DropdownMenu.Label>
 			<DropdownMenu.Separator />
 			<DropdownMenu.Item onSelect={() => openCollection(g)}>
@@ -591,7 +595,7 @@
 							</Sidebar.GroupAction>
 						{/snippet}
 					</DropdownMenu.Trigger>
-					<DropdownMenu.Content side="right" align="start" class="w-56 whitespace-nowrap">
+					<DropdownMenu.Content side={menuSide} align="start" class="w-56 whitespace-nowrap">
 						<DropdownMenu.Item onSelect={() => (smartOpen = true)}>
 							New smart view
 						</DropdownMenu.Item>

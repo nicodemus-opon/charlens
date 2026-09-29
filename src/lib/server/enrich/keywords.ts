@@ -1,11 +1,14 @@
 // Local-only keyword/topic/entity extractor (no model download, no network).
 //
-// v3 heuristic: boilerplate sentences (related-links, ads, newsletter chrome)
-// are dropped before scoring; keyword tags must be anchored in the title
-// (sidebar/footer text never becomes tags); entities need repetition or title
-// support; standalone generic nouns ("system", "market", "power") are never
-// tags. Returns no keyword tags when there is no real latin signal (e.g.
-// CJK-only articles) so feed `<category>` tags stand alone.
+// v7 heuristic: structural anti-boilerplate with NO feed-specific word lists
+// (a hardcoded "install/usage/license" list would overfit README feeds and
+// rot on news feeds). Code blocks, nav/header/footer/aside chrome and repeat
+// headings never reach frequency counts; the lead scores double; every tag
+// needs body evidence (title alone never suffices); owner shards and
+// corpus-wide boilerplate (adaptive document-frequency veto) are vetoed.
+// Standalone generic nouns ("system", "market", "power") are never tags.
+// Returns no keyword tags when there is no real latin signal (e.g. CJK-only
+// articles) so feed `<category>` tags stand alone.
 // Deterministic and dependency-free so it runs inline on ingest and in the
 // scheduler backfill on alpine without extra services.
 
@@ -167,12 +170,20 @@ const CHROME_TOKENS = new Set([
 ]);
 
 /** Strip boilerplate that otherwise becomes tags: ad/related sentences,URLs,
- * emails, relative timestamps, pagination footers, chevron runs, plus
- * English contractions/possessives ("isn't" -> "is", "Kenya's" -> "Kenya")
- * so shards like "isn"/"s" never enter the token stream. */
+ * emails, relative timestamps, pagination footers, chevron runs, fenced code
+ * blocks (raw-markdown path — the HTML path arrives as <pre> and is dropped
+ * in textFromHtml; code is not prose), plus English contractions/possessives
+ * ("isn't" -> "is", "Kenya's" -> "Kenya") so shards like "isn"/"s" never
+ * enter the token stream. No word lists for feed-specific boilerplate here:
+ * corpus-frequency (isCorpusBoilerplate) handles that adaptively. */
 function stripBoilerplate(text: string): string {
 	return (
 		dropBoilerplateSentences(text)
+			// Fenced code blocks (``` / ~~~) are not prose.
+			.replace(/```[\s\S]*?(```|$)/g, ' ')
+			.replace(/~~~[\s\S]*?(~~~|$)/g, ' ')
+			// Markdown heading markers are structure, not words.
+			.replace(/^#{1,6}\s+/gm, '')
 			.replace(/n['’]t\b/gi, ' ')
 			.replace(/['’](s|re|ve|ll|d|m)\b/gi, ' ')
 			// URLs and emails (visible link text / footers like 81rc.mil.cn).
@@ -199,6 +210,79 @@ function singularize(word: string): string {
 	if (/(ses|xes|zes|ches|shes)$/.test(word) && word.length > 5) return word.slice(0, -2);
 	if (word.endsWith('s') && !/(ss|us)$/.test(word)) return word.slice(0, -1);
 	return word;
+}
+
+/** Corpus snapshot for the adaptive boilerplate veto (see below). */
+export interface CorpusStats {
+	size: number;
+	docFreq: Map<string, number>;
+}
+
+/**
+ * Morphological key for document frequency: singularize + light suffix
+ * folding so "install / installed / installation / installer" count as ONE
+ * corpus word. Suffix rules only, no word lists: 2-letter suffixes need a
+ * ≥5-char stem ("docker"/"server" survive), longer ones ≥4.
+ */
+export function dfKey(word: string): string {
+	let s = singularize(word);
+	const folds: [string, number][] = [
+		['ation', 4],
+		['ition', 4],
+		['tion', 4],
+		['sion', 4],
+		['ing', 4],
+		['ers', 4],
+		['er', 5],
+		['or', 5],
+		['ed', 5]
+	];
+	for (const [suf, minStem] of folds) {
+		if (s.length - suf.length >= minStem && s.endsWith(suf)) {
+			s = s.slice(0, -suf.length);
+			break;
+		}
+	}
+	return s;
+}
+
+/** Content-word tokens for document frequency: no stopwords, no shards. */
+export function docFreqTokens(text: string): string[] {
+	const out: string[] = [];
+	for (const raw of text
+		.toLowerCase()
+		.replace(/[^a-z\s-]/g, ' ')
+		.split(/[\s-]+/)) {
+		const t = raw.trim();
+		if (!t || t.length < 3) continue;
+		const s = singularize(t);
+		if (STOPWORDS.has(s)) continue;
+		out.push(dfKey(s));
+	}
+	return out;
+}
+
+/** Presence-per-document counts over a corpus snapshot. Pure. */
+export function computeDocFreq(texts: string[]): Map<string, number> {
+	const df = new Map<string, number>();
+	for (const text of texts) {
+		const seen = new Set(docFreqTokens(text));
+		for (const t of seen) df.set(t, (df.get(t) ?? 0) + 1);
+	}
+	return df;
+}
+
+/**
+ * Adaptive boilerplate veto (the anti-"install" without word lists): a word
+ * spread across a large share of YOUR corpus is boilerplate for your corpus
+ * and useless as a tag — TF-IDF's IDF half. Inert on small corpora (<10
+ * docs: insufficient signal) and when no snapshot is passed (tests, CJK
+ * early-exit), so behavior degrades to the structural layers, never to junk.
+ */
+export function isCorpusBoilerplate(word: string, corpus: CorpusStats | undefined): boolean {
+	if (!corpus || corpus.size < 10) return false;
+	const threshold = Math.max(5, Math.floor(corpus.size * 0.35));
+	return (corpus.docFreq.get(dfKey(word)) ?? 0) >= threshold;
 }
 
 /**
@@ -329,7 +413,8 @@ export function extractEntities(raw: string, limit = 8, titleSet?: Set<string>):
 
 export function extractTopics(
 	input: { title?: string | null; text?: string | null },
-	limit = 5
+	limit = 5,
+	corpus?: CorpusStats
 ): ExtractedTopics {
 	const title = stripBoilerplate(input.title ?? '').slice(0, 500);
 	const text = stripBoilerplate(input.text ?? '').slice(0, 5000);
@@ -341,8 +426,35 @@ export function extractTopics(
 			.map((t) => singularize(t.trim()))
 			.filter((t) => t && t.length >= 2)
 	);
+	// `owner/repo` titles: the pre-slash segments are usernames (structural
+	// position, not a word list) and are never tag candidates.
+	const ownerShards = new Set<string>();
+	const slashParts = (input.title ?? '')
+		.split('/')
+		.map((p) => p.trim())
+		.filter(Boolean);
+	if (slashParts.length >= 2) {
+		for (const part of slashParts.slice(0, -1)) {
+			for (const w of part
+				.toLowerCase()
+				.replace(/[^a-z0-9\s-]/g, ' ')
+				.split(/[\s-]+/)) {
+				const s = singularize(w.trim());
+				if (s.length >= 2) ownerShards.add(s);
+			}
+		}
+	}
+	// Lead bias (structural): summaries live at the top, boilerplate at the
+	// bottom. Lead tokens score double; gates below use raw body evidence.
+	const leadBoundary = (() => {
+		const cut = text.slice(0, 500);
+		const sp = cut.lastIndexOf(' ');
+		return sp > 200 ? sp : cut.length;
+	})();
 	const titleToks = tokenize(title, titleTokens);
-	const bodyToks = tokenize(text, titleTokens);
+	const leadToks = tokenize(text.slice(0, leadBoundary), titleTokens);
+	const restToks = tokenize(text.slice(leadBoundary), titleTokens);
+	const bodyToks = [...leadToks, ...restToks];
 
 	// No latin signal and no entities (e.g. CJK-only article): emit nothing
 	// so feed `<category>` tags stand alone instead of junk like "page page".
@@ -359,40 +471,61 @@ export function extractTopics(
 
 	const scores = new Map<string, number>();
 	for (const t of titleToks) scores.set(t, (scores.get(t) ?? 0) + 3);
-	for (const t of bodyToks) scores.set(t, (scores.get(t) ?? 0) + 1);
+	for (const t of leadToks) scores.set(t, (scores.get(t) ?? 0) + 2);
+	for (const t of restToks) scores.set(t, (scores.get(t) ?? 0) + 1);
+	// Body frequency per token: raw evidence for the gates below.
+	const bodyCounts = new Map<string, number>();
+	for (const t of bodyToks) bodyCounts.set(t, (bodyCounts.get(t) ?? 0) + 1);
 
 	// Bigrams from adjacent raw tokens (title repeated for weight), so no
 	// phrase ever spans a removed stopword ("Models in Agentic" must not
-	// become "model agentic").
-	const rawStream = [
-		...rawTokens(title, titleTokens),
-		...rawTokens(title, titleTokens),
-		...rawTokens(text, titleTokens)
-	];
+	// become "model agentic"). Title and body streams are counted separately
+	// so body-only phrases qualify on body evidence alone.
+	const titleRaw = [...rawTokens(title, titleTokens), ...rawTokens(title, titleTokens)];
+	const bodyRaw = rawTokens(text, titleTokens);
+	const rawStream = [...titleRaw, ...bodyRaw];
 	const bigramScores = new Map<string, number>();
-	for (let i = 0; i < rawStream.length - 1; i++) {
-		// Raw forms gate first: singularizing first would mangle stopwords
-		// ("this" -> "thi") and let them slip through ("thi model").
-		const ra = rawStream[i];
-		const rb = rawStream[i + 1];
-		if (STOPWORDS.has(ra) || STOPWORDS.has(rb)) continue;
-		if (CHROME_TOKENS.has(ra) || CHROME_TOKENS.has(rb)) continue;
-		const a = singularize(ra);
-		const b = singularize(rb);
-		if (!a || !b || a.length < 3 || b.length < 3) continue;
-		if (a === b) continue;
-		if (STOPWORDS.has(a) || STOPWORDS.has(b)) continue;
-		if (CHROME_TOKENS.has(a) || CHROME_TOKENS.has(b)) continue;
-		const key = `${a} ${b}`;
-		bigramScores.set(key, (bigramScores.get(key) ?? 0) + 1);
-	}
-
-	// v3: keyword tags must be anchored in the title — sidebar, ad and footer
-	// text that repeats in the body never becomes tags. Entities carry their
-	// own specificity signal and are filtered separately.
+	const bigramBodyScores = new Map<string, number>();
+	const countBigram = (stream: string[], into: Map<string, number>) => {
+		for (let i = 0; i < stream.length - 1; i++) {
+			// Raw forms gate first: singularizing first would mangle stopwords
+			// ("this" -> "thi") and let them slip through ("thi model").
+			const ra = stream[i];
+			const rb = stream[i + 1];
+			if (STOPWORDS.has(ra) || STOPWORDS.has(rb)) continue;
+			if (CHROME_TOKENS.has(ra) || CHROME_TOKENS.has(rb)) continue;
+			const a = singularize(ra);
+			const b = singularize(rb);
+			if (!a || !b || a.length < 3 || b.length < 3) continue;
+			if (a === b) continue;
+			if (STOPWORDS.has(a) || STOPWORDS.has(b)) continue;
+			if (CHROME_TOKENS.has(a) || CHROME_TOKENS.has(b)) continue;
+			const key = `${a} ${b}`;
+			into.set(key, (into.get(key) ?? 0) + 1);
+		}
+	};
+	countBigram(rawStream, bigramScores);
+	countBigram(bodyRaw, bigramBodyScores);
+	// v7: structural anti-boilerplate, no feed-specific word lists.
+	// - Title is a boost, never sufficient: every unigram needs body evidence
+	//   (3+ body mentions, or a title mention plus 1+ body mention), so pure
+	//   title echoes and headline-only words can never tag.
+	// - Owner shards (pre-slash username) and corpus-wide boilerplate
+	//   (isCorpusBoilerplate: "install" dies on repo feeds, untouched on news
+	//   feeds) are vetoed outright. Code blocks, nav chrome and repeat
+	//   headings never reach frequency counts upstream.
+	// - Lead tokens score double (summaries live at the top).
+	// Entities carry their own specificity signal and are filtered separately.
 	const titleSet = new Set([...titleTokens].map((t) => singularize(t)));
 	const topUnigrams = [...scores.entries()]
-		.filter(([w, s]) => s >= 3 && titleSet.has(w) && !GENERIC_NOUNS.has(w))
+		.filter(
+			([w, s]) =>
+				s >= 3 &&
+				!GENERIC_NOUNS.has(w) &&
+				!ownerShards.has(w) &&
+				!isCorpusBoilerplate(w, corpus) &&
+				((bodyCounts.get(w) ?? 0) >= 3 || (titleSet.has(w) && (bodyCounts.get(w) ?? 0) >= 1))
+		)
 		.sort((a, b) => b[1] - a[1])
 		.slice(0, limit * 2)
 		.map(([w]) => w);
@@ -400,9 +533,14 @@ export function extractTopics(
 		.filter(
 			([key, s]) =>
 				s >= 3 &&
-				key.split(' ').every((w) => titleSet.has(w)) &&
 				// A bigram of two generic nouns ("policy power") is still generic.
-				key.split(' ').some((w) => !GENERIC_NOUNS.has(w))
+				key.split(' ').some((w) => !GENERIC_NOUNS.has(w)) &&
+				!key.split(' ').some((w) => ownerShards.has(w)) &&
+				// Both words corpus-boilerplate ("star fork") means the phrase
+				// is feed chrome; one common word ("kenya power") is fine.
+				!key.split(' ').every((w) => isCorpusBoilerplate(w, corpus)) &&
+				((bigramBodyScores.get(key) ?? 0) >= 2 ||
+					(key.split(' ').every((w) => titleSet.has(w)) && (bigramBodyScores.get(key) ?? 0) >= 1))
 		)
 		.slice(0, limit * 2)
 		.sort((a, b) => b[1] - a[1])
@@ -418,9 +556,13 @@ export function extractTopics(
 		.map((e) => e.toLowerCase())
 		.filter((e) => {
 			if (e.length < 3 || e.length > 40) return false;
+			if (ownerShards.has(e)) return false;
 			const words = e.split(' ');
 			// Sentence-titles ("did ai kill react native") are not tags.
 			if (words.length > 4) return false;
+			// Stutter phrases ("Timesfm Timesfm") are header echoes, not names.
+			if (words.length > 1 && words.every((w) => singularize(w) === singularize(words[0])))
+				return false;
 			if (words.some((w) => STOPWORDS.has(w) || STOPWORDS.has(singularize(w)))) return false;
 			return true;
 		})
@@ -462,10 +604,35 @@ export function extractTopics(
 /** Strip HTML to plain text for the extractor. */
 export function textFromHtml(html: string | null): string {
 	if (!html) return '';
+	// Structural drops (format-level, feed-agnostic — same principle as the
+	// script/style strip): fenced code arrives as <pre>, page furniture as
+	// nav/header/footer/aside. Code (`npm install x` × N) is not prose and
+	// must never count toward tag frequency; nav chrome (repo file lists,
+	// sign-in links, TOCs) is not article content.
+	const dechromed = html
+		.replace(/<script[\s\S]*?<\/script>/gi, ' ')
+		.replace(/<style[\s\S]*?<\/style>/gi, ' ')
+		.replace(/<pre[\s\S]*?<\/pre>/gi, ' ')
+		.replace(/<(nav|header|footer|aside)[\s>][\s\S]*?<\/\1>/gi, ' ');
+	// Headings count once: the first occurrence of each heading stays
+	// eligible, but TOC + section + anchor repetition of the same title
+	// ("Install") never reaches frequency gates.
+	const seenHeaders = new Set<string>();
+	const singleHeaders = dechromed.replace(
+		/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi,
+		(_m, _level: string, inner: string) => {
+			const key = inner
+				.replace(/<[^>]+>/g, ' ')
+				.replace(/\s+/g, ' ')
+				.trim()
+				.toLowerCase();
+			if (!key || seenHeaders.has(key)) return ' ';
+			seenHeaders.add(key);
+			return ` ${inner} `;
+		}
+	);
 	return stripBoilerplate(
-		html
-			.replace(/<script[\s\S]*?<\/script>/gi, ' ')
-			.replace(/<style[\s\S]*?<\/style>/gi, ' ')
+		singleHeaders
 			.replace(/<[^>]+>/g, ' ')
 			.replace(/&amp;/g, '&')
 			.replace(/&lt;/g, '<')

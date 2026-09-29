@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	SEARCH_KEYWORD_BOOST,
 	buildAffinityMaps,
+	burstBoosts,
 	canonicalTitleKey,
 	clusterVectors,
 	collapseNearDuplicates,
@@ -9,9 +10,11 @@ import {
 	deterministicExploreBoost,
 	freshnessScore,
 	idfWeight,
+	injectExplorationSlots,
 	interactionWeight,
 	keywordMatchBoost,
 	ndcgAtK,
+	negAffinity,
 	qualityScore,
 	rankScored,
 	rankWithMMR,
@@ -346,6 +349,84 @@ describe('canonicalTitleKey', () => {
 	it('normalizes titles for duplicate grouping', () => {
 		expect(canonicalTitleKey('Hello,  World!')).toBe(canonicalTitleKey('hello world'));
 		expect(canonicalTitleKey(null)).toBe('');
+	});
+
+	it('strips aggregator source suffixes so wire stories collapse', () => {
+		expect(canonicalTitleKey('Chip breakthrough - CNN')).toBe(
+			canonicalTitleKey('Chip breakthrough')
+		);
+		expect(canonicalTitleKey('Chip breakthrough | BBC')).toBe(
+			canonicalTitleKey('Chip breakthrough')
+		);
+	});
+});
+
+describe('negAffinity', () => {
+	it('is 0 with no negative evidence and positive when muted', () => {
+		const clean = buildAffinityMaps({
+			feedCounts: new Map(),
+			tagCounts: new Map(),
+			authorCounts: new Map()
+		});
+		expect(negAffinity({ feedId: 1, tags: ['ai'] }, clean)).toBe(0);
+		const neg = buildAffinityMaps({
+			feedCounts: new Map(),
+			tagCounts: new Map(),
+			authorCounts: new Map(),
+			negFeedCounts: new Map([[1, 20]])
+		});
+		expect(negAffinity({ feedId: 1, tags: ['other'] }, neg)).toBeGreaterThan(0.3);
+		expect(negAffinity({ feedId: 2, tags: ['other'] }, neg)).toBe(0);
+	});
+
+	it('a muted feed drags the score below an equivalent clean story', () => {
+		const aff = buildAffinityMaps({
+			feedCounts: new Map([[1, 20]]),
+			tagCounts: new Map(),
+			authorCounts: new Map(),
+			negFeedCounts: new Map([[1, 20]])
+		});
+		const now = Date.now();
+		const base = {
+			author: null,
+			publishedAt: new Date(now - 3600000),
+			isRead: false,
+			isSaved: false,
+			tags: [] as string[]
+		};
+		const muted = scoreCandidate({ ...base, id: 1, feedId: 1 }, aff, { now });
+		const clean = scoreCandidate({ ...base, id: 2, feedId: 2 }, aff, { now });
+		expect(clean.score).toBeGreaterThan(muted.score);
+	});
+});
+
+describe('burstBoosts', () => {
+	it('rewards burst topics and ignores singletons', () => {
+		const boosts = burstBoosts(
+			new Map([
+				['ai', 12],
+				['quiet', 1],
+				['steady', 2]
+			])
+		);
+		expect(boosts.get('ai')).toBeCloseTo(1);
+		expect(boosts.has('quiet')).toBe(false);
+		expect(boosts.has('steady')).toBe(false);
+	});
+});
+
+describe('injectExplorationSlots', () => {
+	it('guarantees explorer surface every N positions', () => {
+		const ranked = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+		const out = injectExplorationSlots(ranked, (id) => id === 9, 4);
+		expect(out).toHaveLength(9);
+		expect([...out].sort((a, b) => a - b)).toEqual(ranked);
+		// Explorer 9 moves from last into the first slot window.
+		expect(out.indexOf(9)).toBeLessThan(8);
+	});
+
+	it('is a no-op without explorers', () => {
+		expect(injectExplorationSlots([1, 2, 3], () => false, 4)).toEqual([1, 2, 3]);
 	});
 });
 

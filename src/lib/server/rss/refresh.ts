@@ -10,21 +10,26 @@ import {
 	recommendScoreLog,
 	subscription,
 	userArticleState,
+	userFeedback,
 	userInterest
 } from '$lib/server/db/feeds.schema';
 import {
 	buildAffinityMaps,
+	burstBoosts,
 	canonicalTitleKey,
-	collapseNearDuplicates,
 	deterministicExploreBoost,
 	DEEP_SHUFFLE_EXPLORATION_MULTIPLIER,
 	idfWeight,
+	injectExplorationSlots,
 	interactionWeight,
 	keywordMatchBoost,
 	rankWithMMR,
 	scoreCandidate,
+	SESSION_HALF_LIFE_MS,
 	SHUFFLE_EXPLORATION_MULTIPLIER,
+	tagAffinity,
 	timeDecay,
+	ENGAGEMENT_HALF_LIFE_MS,
 	type AffinityMaps
 } from '$lib/server/recommend/score';
 import {
@@ -59,7 +64,16 @@ import { backfillUnenrichedArticles, isEnrichAutoEnabled } from '$lib/server/enr
 export type ArticleFilter = 'today' | 'saved' | 'all' | 'recommended';
 
 export type ArticleEventKind =
-	'impression' | 'open' | 'dwell' | 'scroll' | 'save' | 'share' | 'finish';
+	| 'impression'
+	| 'open'
+	| 'dwell'
+	| 'scroll'
+	| 'save'
+	| 'share'
+	| 'finish'
+	| 'dismiss'
+	| 'mute_feed'
+	| 'mute_topic';
 
 const EVENT_KINDS = new Set<string>([
 	'impression',
@@ -68,8 +82,13 @@ const EVENT_KINDS = new Set<string>([
 	'scroll',
 	'save',
 	'share',
-	'finish'
+	'finish',
+	'dismiss',
+	'mute_feed',
+	'mute_topic'
 ]);
+
+export type FeedbackKind = 'dismiss' | 'mute_feed' | 'mute_topic';
 
 export function isArticleEventKind(value: unknown): value is ArticleEventKind {
 	return typeof value === 'string' && EVENT_KINDS.has(value);
@@ -802,6 +821,97 @@ export async function logArticleEvent(
 	// model in the background so the next Recommended load re-ranks. Dwell
 	// and scroll beacons are covered by the same throttle via open/finish.
 	if (kind === 'open' || kind === 'finish') scheduleInterestRefresh(userId);
+	if (kind === 'dismiss' || kind === 'mute_feed' || kind === 'mute_topic') {
+		await recordFeedback(userId, articleId, kind);
+		scheduleInterestRefresh(userId);
+	}
+}
+
+/**
+ * Persist explicit negative feedback ("Not interested" / "Don't show this
+ * feed/topic"). The article_event row (written by the caller) keeps the raw
+ * log; this adds a structured row to user_feedback for fast filtering.
+ * `mute_topic` mutes the article's top tag. Never throws: pre-migration DBs
+ * without the table simply read as "no feedback" downstream.
+ */
+export async function recordFeedback(
+	userId: string,
+	articleId: number,
+	kind: FeedbackKind
+): Promise<void> {
+	try {
+		if (kind === 'dismiss') {
+			await db.insert(userFeedback).values({ userId, kind, articleId });
+			return;
+		}
+		const rows = await db
+			.select({ feedId: article.feedId })
+			.from(article)
+			.where(eq(article.id, articleId))
+			.limit(1);
+		const feedId = rows[0]?.feedId;
+		if (kind === 'mute_feed' && feedId) {
+			await db.insert(userFeedback).values({ userId, kind, articleId, feedId });
+			return;
+		}
+		if (kind === 'mute_topic') {
+			const tagRows = await db
+				.select({ name: tag.name })
+				.from(articleTag)
+				.innerJoin(tag, and(eq(tag.id, articleTag.tagId), eq(tag.userId, userId)))
+				.where(eq(articleTag.articleId, articleId))
+				.limit(1);
+			const topic = tagRows[0]?.name?.toLowerCase().slice(0, 60);
+			if (topic) await db.insert(userFeedback).values({ userId, kind, articleId, topic });
+		}
+	} catch (e) {
+		console.error('feedback record failed', e);
+	}
+}
+
+/** Recent explicit feedback for ranking: dismissed article ids, muted feed
+ *  ids and muted topics. Missing-table DBs return empty sets. */
+export async function getFeedbackFilter(userId: string): Promise<{
+	dismissed: Set<number>;
+	mutedFeeds: Set<number>;
+	mutedTopics: Set<string>;
+}> {
+	const empty = {
+		dismissed: new Set<number>(),
+		mutedFeeds: new Set<number>(),
+		mutedTopics: new Set<string>()
+	};
+	try {
+		const rows = await db
+			.select({
+				kind: userFeedback.kind,
+				articleId: userFeedback.articleId,
+				feedId: userFeedback.feedId,
+				topic: userFeedback.topic
+			})
+			.from(userFeedback)
+			.where(eq(userFeedback.userId, userId))
+			.orderBy(desc(userFeedback.createdAt))
+			.limit(500);
+		for (const r of rows) {
+			if (r.kind === 'dismiss' && r.articleId) empty.dismissed.add(r.articleId);
+			else if (r.kind === 'mute_feed' && r.feedId) empty.mutedFeeds.add(r.feedId);
+			else if (r.kind === 'mute_topic' && r.topic) empty.mutedTopics.add(r.topic.toLowerCase());
+		}
+		// Legacy path: explicit dismiss/mute article_events predate the table.
+		const legacy = await db
+			.select({ kind: articleEvent.kind, articleId: articleEvent.articleId })
+			.from(articleEvent)
+			.where(eq(articleEvent.userId, userId))
+			.orderBy(desc(articleEvent.createdAt))
+			.limit(500);
+		for (const r of legacy) {
+			if (r.kind === 'dismiss') empty.dismissed.add(r.articleId);
+		}
+	} catch (e) {
+		console.error('feedback filter load failed', e);
+	}
+	return empty;
 }
 
 async function getAffinityMaps(userId: string, now = Date.now()): Promise<AffinityMaps> {
@@ -848,29 +958,79 @@ async function getAffinityMaps(userId: string, now = Date.now()): Promise<Affini
 	const feedCounts = new Map<number, number>();
 	const tagCounts = new Map<string, number>();
 	const authorCounts = new Map<string, number>();
+	// YouTube-style split: long-term taste (30d half-life), short-term
+	// session (48h half-life, "what I'm into right now"), and persistent
+	// negatives (bounces + explicit dismiss/mute feedback).
+	const negFeedCounts = new Map<number, number>();
+	const negTagCounts = new Map<string, number>();
+	const shortFeedCounts = new Map<number, number>();
+	const shortTagCounts = new Map<string, number>();
+	// Explicit feedback joins the negative stream with fixed weights:
+	// a dismiss ≈ 3 bounces, a feed mute ≈ 5, a topic mute ≈ 4.
+	let feedback: { mutedFeeds: Set<number>; mutedTopics: Set<string> } = {
+		mutedFeeds: new Set(),
+		mutedTopics: new Set()
+	};
+	try {
+		feedback = await getFeedbackFilter(userId);
+	} catch {
+		// Pre-migration or transient failure — negatives degrade gracefully.
+	}
+	for (const fid of feedback.mutedFeeds) {
+		negFeedCounts.set(fid, (negFeedCounts.get(fid) ?? 0) + 6);
+	}
+	const mutedTopicList = [...feedback.mutedTopics];
 	for (const s of states) {
-		const w =
-			interactionWeight({
-				openCount: s.openCount,
-				isRead: s.isRead,
-				isSaved: s.isSaved,
-				finished: s.finished,
-				totalDwellMs: s.totalDwellMs,
-				maxScrollPct: s.maxScrollPct
-			}) * timeDecay(now - (s.updatedAt?.getTime() ?? now));
+		const w = interactionWeight({
+			openCount: s.openCount,
+			isRead: s.isRead,
+			isSaved: s.isSaved,
+			finished: s.finished,
+			totalDwellMs: s.totalDwellMs,
+			maxScrollPct: s.maxScrollPct
+		});
+		const ageMs = now - (s.updatedAt?.getTime() ?? now);
+		const tags = tagByArticle.get(s.articleId) ?? [];
+		if (w < 0) {
+			// Bounce: negative evidence, decayed slowly so quick rejects linger.
+			const nw = Math.abs(w) * timeDecay(ageMs, ENGAGEMENT_HALF_LIFE_MS);
+			negFeedCounts.set(s.feedId, (negFeedCounts.get(s.feedId) ?? 0) + nw);
+			if (tags.length > 0) {
+				const share = nw / tags.length;
+				for (const t of tags) negTagCounts.set(t, (negTagCounts.get(t) ?? 0) + share);
+			}
+			continue;
+		}
 		if (!(w > 0)) continue;
-		feedCounts.set(s.feedId, (feedCounts.get(s.feedId) ?? 0) + w);
+		const long = w * timeDecay(ageMs, ENGAGEMENT_HALF_LIFE_MS);
+		const short = w * timeDecay(ageMs, SESSION_HALF_LIFE_MS);
+		feedCounts.set(s.feedId, (feedCounts.get(s.feedId) ?? 0) + long);
+		shortFeedCounts.set(s.feedId, (shortFeedCounts.get(s.feedId) ?? 0) + short);
 		if (s.author?.trim()) {
 			const key = s.author.trim().toLowerCase();
-			authorCounts.set(key, (authorCounts.get(key) ?? 0) + w);
+			authorCounts.set(key, (authorCounts.get(key) ?? 0) + long);
 		}
-		const tags = tagByArticle.get(s.articleId) ?? [];
 		if (tags.length > 0) {
-			const share = w / tags.length;
-			for (const t of tags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + share);
+			const longShare = long / tags.length;
+			const shortShare = short / tags.length;
+			for (const t of tags) {
+				tagCounts.set(t, (tagCounts.get(t) ?? 0) + longShare);
+				shortTagCounts.set(t, (shortTagCounts.get(t) ?? 0) + shortShare);
+			}
 		}
 	}
-	return buildAffinityMaps({ feedCounts, tagCounts, authorCounts });
+	for (const t of mutedTopicList) {
+		negTagCounts.set(t, (negTagCounts.get(t) ?? 0) + 5);
+	}
+	return buildAffinityMaps({
+		feedCounts,
+		tagCounts,
+		authorCounts,
+		negFeedCounts,
+		negTagCounts,
+		shortFeedCounts,
+		shortTagCounts
+	});
 }
 
 /** Unread stories from the last 14 days — badge count for the sidebar. */
@@ -930,55 +1090,121 @@ export async function getRecommendedArticles(
 			queryVec = null;
 		}
 	}
+	const now = Date.now();
+	// Affinities first: recall needs top-feed ids (affinity depth) and the
+	// muted-feed list (hard filter). Search skips this — query intent rules.
+	const affinities = isSearch ? null : await getAffinityMaps(userId, now);
+	const feedback = isSearch
+		? {
+				dismissed: new Set<number>(),
+				mutedFeeds: new Set<number>(),
+				mutedTopics: new Set<string>()
+			}
+		: await getFeedbackFilter(userId);
 	const since = new Date(Date.now() - 14 * 86400000);
 	// Same "new to the reader" semantics as the Today filter: a feed's
 	// backlog counts if published OR first seen inside the window, so a
 	// freshly added feed shows up instead of being filtered out for having
 	// old <pubDate>s.
-	const conds = [
+	const baseConds = [
 		eq(subscription.userId, userId),
 		eq(feed.userId, userId),
 		or(gte(article.publishedAt, since), gte(article.createdAt, since))!
 	];
-	if (feedId) conds.push(eq(article.feedId, feedId));
-	if (isSearch && !queryVec) {
-		const q = `%${trimmedQuery}%`;
-		conds.push(or(ilike(article.title, q), ilike(article.excerpt, q), ilike(article.author, q))!);
+	if (feedId) baseConds.push(eq(article.feedId, feedId));
+	const mutedFeedIds = [...feedback.mutedFeeds];
+	if (mutedFeedIds.length > 0 && !feedId) {
+		// Muted feeds never surface in Recommended (explicit scope still works).
+		baseConds.push(sql`${article.feedId} NOT IN (${sql.join(mutedFeedIds, sql`, `)})`);
 	}
-	const rows = await db
-		.select({
-			id: article.id,
-			feedId: article.feedId,
-			feedTitle: feed.title,
-			title: article.title,
-			link: article.link,
-			author: article.author,
-			publishedAt: article.publishedAt,
-			excerpt: article.excerpt,
-			imageUrl: article.imageUrl,
-			isRead: sql<boolean>`coalesce(${userArticleState.isRead}, false)`.mapWith(Boolean),
-			isSaved: sql<boolean>`coalesce(${userArticleState.isSaved}, false)`.mapWith(Boolean),
-			readMinutes:
-				sql<number>`greatest(1, ceil(length(regexp_replace(coalesce(${article.contentHtml}, ${article.excerpt}, ''), '<[^>]+>', '', 'g')) / 1320.0)::int)`.mapWith(
-					Number
-				)
-		})
-		.from(article)
-		.innerJoin(feed, eq(feed.id, article.feedId))
-		.innerJoin(subscription, and(eq(subscription.feedId, feed.id), eq(subscription.userId, userId)))
-		.leftJoin(
-			userArticleState,
-			and(eq(userArticleState.articleId, article.id), eq(userArticleState.userId, userId))
-		)
-		.where(and(...conds))
-		.orderBy(desc(sql`coalesce(${article.publishedAt}, ${article.createdAt})`), desc(article.id))
-		.limit(500);
-
-	const now = Date.now();
-	const affinities = await getAffinityMaps(userId, now);
+	const rowSelect = {
+		id: article.id,
+		feedId: article.feedId,
+		feedTitle: feed.title,
+		title: article.title,
+		link: article.link,
+		author: article.author,
+		publishedAt: article.publishedAt,
+		excerpt: article.excerpt,
+		imageUrl: article.imageUrl,
+		isRead: sql<boolean>`coalesce(${userArticleState.isRead}, false)`.mapWith(Boolean),
+		isSaved: sql<boolean>`coalesce(${userArticleState.isSaved}, false)`.mapWith(Boolean),
+		readMinutes:
+			sql<number>`greatest(1, ceil(length(regexp_replace(coalesce(${article.contentHtml}, ${article.excerpt}, ''), '<[^>]+>', '', 'g')) / 1320.0)::int)`.mapWith(
+				Number
+			)
+	};
+	function rowQuery(extraConds: ReturnType<typeof eq>[], orderOffset = 0, pageLimit = 350) {
+		return db
+			.select(rowSelect)
+			.from(article)
+			.innerJoin(feed, eq(feed.id, article.feedId))
+			.innerJoin(
+				subscription,
+				and(eq(subscription.feedId, feed.id), eq(subscription.userId, userId))
+			)
+			.leftJoin(
+				userArticleState,
+				and(eq(userArticleState.articleId, article.id), eq(userArticleState.userId, userId))
+			)
+			.where(and(...baseConds, ...extraConds))
+			.orderBy(desc(sql`coalesce(${article.publishedAt}, ${article.createdAt})`), desc(article.id))
+			.limit(pageLimit)
+			.offset(orderOffset);
+	}
+	let rows: Awaited<ReturnType<typeof rowQuery>>;
+	if (isSearch) {
+		const searchConds: ReturnType<typeof eq>[] = [];
+		if (!queryVec) {
+			const q = `%${trimmedQuery}%`;
+			searchConds.push(
+				or(ilike(article.title, q), ilike(article.excerpt, q), ilike(article.author, q))!
+			);
+		}
+		rows = await rowQuery(searchConds, 0, 500);
+	} else {
+		// YouTube-style multi-source recall, merged + deduped below:
+		// 1) recency — the fresh surface (subscribed, newest first);
+		// 2) affinity depth — older gems from top-taste feeds past the
+		//    recency cutoff, so a great 10-day-old story isn't buried by
+		//    350 newer strangers;
+		// 3) exploration — newest items from feeds with no affinity yet, so
+		//    quiet/new subscriptions always get a trial slot.
+		const topFeeds =
+			affinities != null
+				? [...affinities.feedScores.entries()]
+						.sort((a, b) => b[1] - a[1])
+						.slice(0, 5)
+						.map(([fid]) => fid)
+				: [];
+		const affinityConds: ReturnType<typeof eq>[] =
+			topFeeds.length > 0 ? [inArray(article.feedId, topFeeds)] : [];
+		const exploreConds: ReturnType<typeof eq>[] =
+			topFeeds.length > 0 ? [sql`${article.feedId} NOT IN (${sql.join(topFeeds, sql`, `)})`] : [];
+		const [recent, depth, explore] = await Promise.all([
+			rowQuery([], 0, 350),
+			topFeeds.length > 0 ? rowQuery(affinityConds, 120, 120) : Promise.resolve([]),
+			rowQuery(exploreConds, 0, 80)
+		]);
+		const seen = new Set<number>();
+		rows = [];
+		for (const r of [...recent, ...depth, ...explore]) {
+			if (seen.has(r.id)) continue;
+			seen.add(r.id);
+			rows.push(r);
+		}
+		rows = rows.slice(0, 550);
+	}
+	// Dismissed articles never resurface (until re-added by refresh).
+	if (feedback.dismissed.size > 0) {
+		rows = rows.filter((r) => !feedback.dismissed.has(r.id));
+	}
 	// Cold-start users get chronological order — unless a semantic query
 	// vector exists, in which case search ranking still works.
-	if (!affinities.hasSignals && !queryVec) return rows.slice(0, limit);
+	if (!isSearch && !(affinities?.hasSignals ?? false) && !queryVec) return rows.slice(0, limit);
+	const aff =
+		affinities ??
+		buildAffinityMaps({ feedCounts: new Map(), tagCounts: new Map(), authorCounts: new Map() });
 
 	const candidateIds = rows.map((r) => r.id);
 	const [tagMap, candidateStates, embeddingRows, interestRows] = await Promise.all([
@@ -1042,20 +1268,32 @@ export async function getRecommendedArticles(
 	}
 	const tagIdf = new Map<string, number>();
 	for (const [t, df] of docFreq) tagIdf.set(t, idfWeight(df, rows.length));
+	// Topic-burst map: tags riding a burst of coverage get a small trending
+	// boost (YouTube's trending shelf, cheap version — no CTR model needed).
+	const bursts = isSearch ? new Map<string, number>() : burstBoosts(docFreq);
+	const idfOf = (t: string) => tagIdf.get(t) ?? 1;
 
 	// Feed volume normalization: a feed with 40 recent items shouldn't
 	// auto-win over a quiet feed the user loves equally.
 	const feedVolume = new Map<number, number>();
 	for (const r of rows) feedVolume.set(r.feedId, (feedVolume.get(r.feedId) ?? 0) + 1);
 	for (const [fid, count] of feedVolume) {
-		const cur = affinities.feedScores.get(fid);
-		if (cur != null && count > 1) affinities.feedScores.set(fid, cur / Math.log2(1 + count));
+		const cur = aff.feedScores.get(fid);
+		if (cur != null && count > 1) aff.feedScores.set(fid, cur / Math.log2(1 + count));
 	}
 
 	const mode = isSearch ? 'search' : 'recommend';
 	const scored = rows.map((r) => {
 		const st = stateById.get(r.id);
 		const stored = embeddingById.get(r.id);
+		const rowTags = tagsPerRow.get(r.id) ?? [];
+		// Session affinity: short-term tag taste, IDF-weighted like long-term.
+		const sessionBoost = isSearch ? 0 : tagAffinity(rowTags, aff.shortTagScores, idfOf);
+		let trendingBoost = 0;
+		for (const t of rowTags) {
+			const b = bursts.get(t) ?? 0;
+			if (b > trendingBoost) trendingBoost = b;
+		}
 		const s = scoreCandidate(
 			{
 				id: r.id,
@@ -1064,7 +1302,7 @@ export async function getRecommendedArticles(
 				publishedAt: r.publishedAt,
 				isRead: r.isRead,
 				isSaved: r.isSaved,
-				tags: tagsPerRow.get(r.id) ?? [],
+				tags: rowTags,
 				semanticSimilarity: similarityToInterest(stored?.embedding, semanticTarget),
 				finished: st?.finished ?? false,
 				dwellMs: st?.totalDwellMs ?? null,
@@ -1073,11 +1311,13 @@ export async function getRecommendedArticles(
 				excerptLength: r.excerpt?.length ?? 0,
 				titleLength: r.title?.length ?? 0
 			},
-			affinities,
+			aff,
 			{
 				now,
 				mode,
 				tagIdf,
+				sessionBoost,
+				trendingBoost,
 				keywordBoost: isSearch ? keywordMatchBoost(trimmedQuery, r) : 0,
 				// An explicit shuffle seed elects a fresh exploration mix. The
 				// sidebar re-click stays gentle (close-call swaps only); the
@@ -1104,6 +1344,8 @@ export async function getRecommendedArticles(
 	});
 	if (isRecommendScoreLogEnabled()) {
 		// Eval log (env-gated, best-effort — ranking never waits on it).
+		// Components carry the seed/mode so offline replay can reconstruct
+		// exploration + ranking context per impression batch.
 		void db
 			.insert(recommendScoreLog)
 			.values(
@@ -1111,28 +1353,32 @@ export async function getRecommendedArticles(
 					userId,
 					articleId: s.id,
 					score: s.score,
-					components: s.components
+					components: { ...s.components, _mode: mode, _seed: String(seed), _deep: deep ? 1 : 0 }
 				}))
 			)
 			.catch((e) => console.error('recommend score log failed', e));
 	}
-	// Recommendations rank by pure relevance (score order after
-	// near-duplicate collapse). Search keeps MMR diversity, where a varied
-	// result set is appropriate; Recommended must mirror the user's taste.
+	// YouTube-Home-style final pass for Recommended: MMR diversity (no feed
+	// or topic monopolizes the top) over near-duplicate-collapsed items,
+	// then guaranteed exploration slots so new topics always surface.
+	// Search keeps plain MMR over the unfiltered set.
+	const rankItems = [...scored]
+		.sort((a, b) => b.score - a.score)
+		.map((s) => ({
+			id: s.id,
+			feedId: s.feedId,
+			score: s.score,
+			embedding: s.embedding,
+			topics: s.topics,
+			titleKey: s.titleKey
+		}));
 	const orderedIds = isSearch
-		? rankWithMMR(scored)
-		: collapseNearDuplicates(
-				[...scored]
-					.sort((a, b) => b.score - a.score)
-					.map((s) => ({
-						id: s.id,
-						feedId: s.feedId,
-						score: s.score,
-						embedding: s.embedding,
-						topics: s.topics,
-						titleKey: s.titleKey
-					}))
-			).map((i) => i.id);
+		? rankWithMMR(rankItems)
+		: injectExplorationSlots(
+				rankWithMMR(rankItems, { lambda: 0.75, perFeedCap: 3, perTopicCap: 2 }),
+				(id) => deterministicExploreBoost(userId, id, now, seed === '' ? 'slot' : seed) === 1,
+				12
+			);
 	const byId = new Map(rows.map((r) => [r.id, r]));
 	return orderedIds
 		.map((id) => byId.get(id))

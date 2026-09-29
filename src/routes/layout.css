@@ -170,16 +170,17 @@
 	}
 	body {
 		@apply bg-background text-foreground;
+		/* Native-feel touch defaults: no tap highlight flash, no double-tap
+		   zoom delay, no rubber-band chaining from inner scrollers. */
+		touch-action: manipulation;
+		-webkit-tap-highlight-color: transparent;
+		overscroll-behavior-y: none;
 	}
 }
 
-/* Notch/home-indicator insets for fixed mobile chrome (bottom nav). */
+/* Notch/home-indicator inset for fixed mobile chrome (bottom bars). */
 @utility pb-safe {
 	padding-bottom: env(safe-area-inset-bottom);
-}
-
-@utility pt-safe {
-	padding-top: env(safe-area-inset-top);
 }
 
 /* Brand motion identity: one easing family, two durations. UI motion stays

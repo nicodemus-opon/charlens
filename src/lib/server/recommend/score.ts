@@ -16,6 +16,14 @@ export interface AffinityMaps {
 	authorScores: Map<string, number>;
 	/** False for cold-start users (no weighted engagement) — caller falls back to Today ordering. */
 	hasSignals: boolean;
+	/** Persistent negative evidence (dismisses, bounces, mutes). Empty when none. */
+	negFeedScores: Map<number, number>;
+	negTagScores: Map<string, number>;
+	/** Short-term (session, ~48h half-life) affinities — "what I'm into right now". */
+	shortFeedScores: Map<number, number>;
+	shortTagScores: Map<string, number>;
+	/** True when any negative evidence exists. */
+	hasNegSignals: boolean;
 }
 
 export interface RecommendCandidate {
@@ -50,6 +58,10 @@ export interface ScoreOptions {
 	tagIdf?: Map<string, number>;
 	/** Precomputed 0..SEARCH_KEYWORD_BOOST lexical match (search mode). */
 	keywordBoost?: number;
+	/** Precomputed 0..1 short-term (session) tag affinity for this candidate. */
+	sessionBoost?: number;
+	/** Precomputed 0..1 topic-burst (trending velocity) boost for this candidate. */
+	trendingBoost?: number;
 }
 
 export interface ScoredCandidate {
@@ -59,18 +71,32 @@ export interface ScoredCandidate {
 	components: Record<string, number>;
 }
 
-/** Recommend blend — sums to 1. Taste signals (semantic/tag/feed) dominate;
- *  freshness stays strong enough that a fresh stranger can still beat a
- *  stale favorite (see eval.spec.ts golden), and read demotes opened stories. */
+/** Recommend blend — sums to 1. Taste signals (semantic/tag/session/feed)
+ *  dominate; freshness stays strong enough that a fresh stranger can still
+ *  beat a stale favorite (see eval.spec.ts golden), and read demotes opened
+ *  stories. Negative evidence is a separate subtractive term (not in the
+ *  blend) so a mute always hurts no matter the taste match. */
 export const RECOMMEND_WEIGHTS = {
-	semantic: 0.32,
-	tag: 0.22,
-	feed: 0.11,
-	freshness: 0.11,
-	author: 0.05,
-	quality: 0.04,
+	semantic: 0.28,
+	tag: 0.18,
+	session: 0.1,
+	feed: 0.09,
+	freshness: 0.1,
+	author: 0.04,
+	quality: 0.03,
+	trending: 0.03,
 	read: 0.15
 } as const;
+
+/** Subtractive weight for persistent negative evidence (dismiss/bounce/mute).
+ *  Applied as NEGATIVE_WEIGHT * negAffinity (0..~1), so a strong negative
+ *  (~0.5+) outweighs freshness+quality but a beloved fresh favorite can still
+ *  survive a single weak bounce. */
+export const NEGATIVE_WEIGHT = 0.3;
+
+/** Short-term vs long-term memory: session weights halve every 48h so
+ *  "what I'm into right now" adapts fast; long-term uses the 30d half-life. */
+export const SESSION_HALF_LIFE_MS = 2 * 86_400_000;
 
 /** Search blend — query intent dominates; feed/tag/author affinity ignored. */
 export const SEARCH_WEIGHTS = {
@@ -234,11 +260,20 @@ function saturateScores(
 	return out;
 }
 
-/** Build 0–1 affinity maps from (decayed, engagement-weighted) aggregates. Pure for tests. */
+/** Build 0–1 affinity maps from (decayed, engagement-weighted) aggregates. Pure for tests.
+ *
+ *  Positive counts earn affinity; `negFeedCounts`/`negTagCounts` (built from
+ *  bounces, dismisses and mutes) earn a separate penalty map so negative
+ *  evidence is never dropped. `short*` counts use a faster decay upstream
+ *  (session memory) and blend in as their own component. */
 export function buildAffinityMaps(raw: {
 	feedCounts: Map<number, number>;
 	tagCounts: Map<string, number>;
 	authorCounts: Map<string, number>;
+	negFeedCounts?: Map<number, number>;
+	negTagCounts?: Map<string, number>;
+	shortFeedCounts?: Map<number, number>;
+	shortTagCounts?: Map<string, number>;
 }): AffinityMaps {
 	const feedScores = saturateScores(raw.feedCounts, AFFINITY_SATURATION.feed) as Map<
 		number,
@@ -249,8 +284,99 @@ export function buildAffinityMaps(raw: {
 		string,
 		number
 	>;
+	const negFeedScores = saturateScores(
+		raw.negFeedCounts ?? new Map(),
+		AFFINITY_SATURATION.feed
+	) as Map<number, number>;
+	const negTagScores = saturateScores(
+		raw.negTagCounts ?? new Map(),
+		AFFINITY_SATURATION.tag
+	) as Map<string, number>;
+	const shortFeedScores = saturateScores(
+		raw.shortFeedCounts ?? new Map(),
+		AFFINITY_SATURATION.feed
+	) as Map<number, number>;
+	const shortTagScores = saturateScores(
+		raw.shortTagCounts ?? new Map(),
+		AFFINITY_SATURATION.tag
+	) as Map<string, number>;
 	const hasSignals = feedScores.size > 0 || tagScores.size > 0;
-	return { feedScores, tagScores, authorScores, hasSignals };
+	const hasNegSignals = negFeedScores.size > 0 || negTagScores.size > 0;
+	return {
+		feedScores,
+		tagScores,
+		authorScores,
+		hasSignals,
+		negFeedScores,
+		negTagScores,
+		shortFeedScores,
+		shortTagScores,
+		hasNegSignals
+	};
+}
+
+/**
+ * Negative affinity for one candidate: the worst of its feed penalty and its
+ * top-2 tag penalty (IDF-weighted like the positive side). 0 when nothing
+ * negative is known — absence of evidence is not evidence of dislike.
+ */
+export function negAffinity(
+	candidate: { feedId: number; tags: string[] },
+	neg: Pick<AffinityMaps, 'negFeedScores' | 'negTagScores'>,
+	idfOf?: (tag: string) => number
+): number {
+	const feedPen = neg.negFeedScores?.get(candidate.feedId) ?? 0;
+	const tagPen = tagAffinity(candidate.tags, neg.negTagScores ?? new Map(), idfOf);
+	return Math.max(feedPen, tagPen);
+}
+
+/**
+ * Topic-burst (trending velocity) map over a candidate window: tags that
+ * appear in a burst of recent stories score toward 1, steady-state tags
+ * toward 0. Pure for tests — caller passes per-tag doc frequencies plus the
+ * max frequency in the window.
+ */
+export function burstBoosts(docFreq: Map<string, number>): Map<string, number> {
+	const out = new Map<string, number>();
+	let max = 0;
+	for (const n of docFreq.values()) if (n > max) max = n;
+	if (max <= 1) return out;
+	for (const [t, n] of docFreq) {
+		if (n >= 3) out.set(t, Math.min(1, n / max));
+	}
+	return out;
+}
+
+/**
+ * Guaranteed exploration slots, YouTube-style: after relevance ranking,
+ * every `every`-th position is filled from exploration-eligible items
+ * (deterministically elected via `isExplorer`) so new topics always get
+ * surface. Pure for tests. Returns a permutation of the input ids.
+ */
+export function injectExplorationSlots(
+	rankedIds: number[],
+	isExplorer: (id: number) => boolean,
+	every = 12
+): number[] {
+	if (every <= 0 || rankedIds.length === 0) return [...rankedIds];
+	const explorers = rankedIds.filter((id) => isExplorer(id));
+	if (explorers.length === 0) return [...rankedIds];
+	const explorerSet = new Set(explorers);
+	const base = rankedIds.filter((id) => !explorerSet.has(id));
+	const out: number[] = [];
+	const queue = [...explorers];
+	let sinceSlot = 0;
+	for (const id of base) {
+		if (sinceSlot >= every - 1 && queue.length > 0) {
+			out.push(queue.shift()!);
+			sinceSlot = 0;
+		}
+		out.push(id);
+		sinceSlot += 1;
+	}
+	// Any leftover explorers that never earned a slot go at the end in order.
+	out.push(...queue);
+	return out;
 }
 
 /**
@@ -401,23 +527,33 @@ export function scoreCandidate(
 		else if (keyword01 > 0) reasons.push('Partial keyword match');
 		if (fresh > 0.85) reasons.push('Fresh story');
 	} else {
+		const session = Math.max(0, Math.min(1, opts.sessionBoost ?? 0));
+		const trending = Math.max(0, Math.min(1, opts.trendingBoost ?? 0));
+		const neg = negAffinity({ feedId: c.feedId, tags: allTags }, aff, idfOf);
 		components.semantic = RECOMMEND_WEIGHTS.semantic * semantic;
 		components.tag = RECOMMEND_WEIGHTS.tag * tagAff;
+		components.session = RECOMMEND_WEIGHTS.session * session;
 		components.feed = RECOMMEND_WEIGHTS.feed * feedAff;
 		components.freshness = RECOMMEND_WEIGHTS.freshness * fresh;
 		components.author = RECOMMEND_WEIGHTS.author * authorAff;
 		components.quality = RECOMMEND_WEIGHTS.quality * quality;
+		components.trending = RECOMMEND_WEIGHTS.trending * trending;
 		components.read = RECOMMEND_WEIGHTS.read * read;
+		components.negative = -NEGATIVE_WEIGHT * neg;
 		score =
 			components.semantic +
 			components.tag +
+			components.session +
 			components.feed +
 			components.freshness +
 			components.author +
 			components.quality +
-			components.read;
+			components.trending +
+			components.read +
+			components.negative;
 		if (semantic > 0.55) reasons.push('Matches your reading interests');
 		if (tagAff > 0.4) reasons.push('Matches topics you follow');
+		if (session > 0.4) reasons.push('Trending in your reading');
 		if (feedAff > 0.4) reasons.push('From a feed you read often');
 		if (authorAff > 0.4) reasons.push('From an author you read');
 		if (fresh > 0.85) reasons.push('Fresh story');
@@ -429,10 +565,16 @@ export function scoreCandidate(
 	return { id: c.id, score, reasons: reasons.slice(0, 3), components };
 }
 
-/** Normalized title key for cheap exact-duplicate grouping. */
+/** Normalized title key for cheap exact-duplicate grouping.
+ *  Strips aggregator source suffixes ("Title - CNN", "Title | BBC") so the
+ *  same wire story from two feeds still collapses. */
 export function canonicalTitleKey(title: string | null | undefined): string {
 	if (!title) return '';
-	return title
+	const deSuffixed = title
+		.replace(/\s+[-|–—:]\s+[^-|–—:]{2,40}$/, '')
+		.replace(/\s+\(via\s+[^)]+\)\s*$/i, '')
+		.replace(/\s+\[via\s+[^\]]+\]\s*$/i, '');
+	return deSuffixed
 		.toLowerCase()
 		.replace(/[^a-z0-9\s]/g, ' ')
 		.replace(/\s+/g, ' ')
