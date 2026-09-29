@@ -20,11 +20,17 @@ export function getScopeState(params: URLSearchParams): ScopeState {
 /**
  * Href that moves to a single scope: applies the overrides, drops any tag
  * filter (a new scope is unambiguous) and clears the open article so the
- * list shows on its own. Pass `null` to remove a param.
+ * list shows on its own. Search text (`q`) and recommendation shuffle state
+ * (`shuffle`/`deep`) never carry over — a stale `q` would silently flip
+ * Today/Saved into the heavy semantic-ranking path, and a stale `shuffle`
+ * is meaningless outside Recommended. Pass `null` to remove a param.
  */
 export function buildScopeHref(current: URL, params: Record<string, string | null>): string {
 	const url = new URL(current);
-	url.searchParams.delete('tag');
+	if (!('tag' in params)) url.searchParams.delete('tag');
+	if (!('q' in params)) url.searchParams.delete('q');
+	if (!('shuffle' in params)) url.searchParams.delete('shuffle');
+	if (!('deep' in params)) url.searchParams.delete('deep');
 	for (const [k, v] of Object.entries(params)) {
 		if (v === null) url.searchParams.delete(k);
 		else url.searchParams.set(k, v);

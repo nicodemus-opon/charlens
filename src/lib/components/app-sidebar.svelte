@@ -143,7 +143,13 @@
 		const url = new URL($page.url);
 		// Sidebar navigation always moves to a single scope (feed, collection,
 		// smart view or tag) — a tag filter never carries over unless passed.
+		// Search text and recommendation shuffle state never carry over
+		// either: a stale `q` would silently flip Today/Saved into the heavy
+		// semantic-ranking path instead of the cheap chronological query.
 		if (!('tag' in params)) url.searchParams.delete('tag');
+		if (!('q' in params)) url.searchParams.delete('q');
+		if (!('shuffle' in params)) url.searchParams.delete('shuffle');
+		if (!('deep' in params)) url.searchParams.delete('deep');
 		for (const [k, v] of Object.entries(params)) {
 			if (v === null) url.searchParams.delete(k);
 			else url.searchParams.set(k, v);
@@ -153,13 +159,15 @@
 	}
 
 	/**
-	 * Clicking Recommended gently refreshes: the plain href would be
-	 * identical when already on ?filter=recommended (a SvelteKit no-op with
-	 * no load re-run), and ranking is daily-deterministic without a seed.
-	 * A fresh `shuffle` param forces both a navigation and a small
+	 * Clicking Recommended always re-ranks: the plain href would be
+	 * identical when already on ?filter=recommended (a SvelteKit no-op
+	 * with no load re-run), and ranking is daily-deterministic without a
+	 * seed. A fresh `shuffle` param forces both a navigation and a small
 	 * exploration mix; search text and deep-shuffle mode never carry over.
+	 * Modifier/middle clicks keep native new-tab behaviour.
 	 */
 	function goRecommended(e: MouseEvent) {
+		if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
 		e.preventDefault();
 		const url = new URL($page.url);
 		url.searchParams.set('filter', 'recommended');

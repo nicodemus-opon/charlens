@@ -1736,8 +1736,45 @@ export async function fetchFeedForRefresh(
 	return { parsed, healed: true };
 }
 
-/** Refresh only this user's feeds: each account fetches its own copies. */
+/** Refresh only this user's feeds: each account fetches its own copies.
+ *
+ * Concurrency guard: page loads fire a background (non-forced) refresh on
+ * almost every navigation (Today, collections, Read later), so rapid
+ * clicking used to stack overlapping full refresh loops — serial network
+ * fetches plus DB upserts competing with the foreground page queries on the
+ * same event loop/pool, which read as a random multi-second hang. A second
+ * call for the same user now joins the in-flight run, and background ticks
+ * are throttled to one per minute (explicit Refresh / force bypasses both).
+ */
+const refreshInFlight = new Map<string, Promise<{ added: number }>>();
+const lastBackgroundRefreshAt = new Map<string, number>();
+const BACKGROUND_REFRESH_COOLDOWN_MS = 60_000;
+
+/** Test-only: reset the refresh guard so tests can re-run refreshes. */
+export function _resetRefreshGuardForTests(): void {
+	refreshInFlight.clear();
+	lastBackgroundRefreshAt.clear();
+}
+
 export async function refreshStaleFeeds(userId: string, force = false) {
+	if (!force) {
+		const now = Date.now();
+		if (now - (lastBackgroundRefreshAt.get(userId) ?? 0) < BACKGROUND_REFRESH_COOLDOWN_MS) {
+			return { added: 0 };
+		}
+		const running = refreshInFlight.get(userId);
+		if (running) return running;
+		lastBackgroundRefreshAt.set(userId, now);
+		const run = refreshStaleFeedsInner(userId, false).finally(() => {
+			if (refreshInFlight.get(userId) === run) refreshInFlight.delete(userId);
+		});
+		refreshInFlight.set(userId, run);
+		return run;
+	}
+	return refreshStaleFeedsInner(userId, true);
+}
+
+async function refreshStaleFeedsInner(userId: string, force = false) {
 	const feeds = await db.select().from(feed).where(eq(feed.userId, userId));
 	let added = 0;
 	for (const f of feeds) {

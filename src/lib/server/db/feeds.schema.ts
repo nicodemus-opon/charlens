@@ -84,7 +84,15 @@ export const article = pgTable(
 		fullFetchedAt: timestamp('full_fetched_at'),
 		createdAt: timestamp('created_at').notNull().defaultNow()
 	},
-	(t) => [uniqueIndex('article_feed_guid_idx').on(t.feedId, t.guid)]
+	(t) => [
+		uniqueIndex('article_feed_guid_idx').on(t.feedId, t.guid),
+		// Hot read paths filter/sort by feed and recency (Today 24h window,
+		// Recommended 14d window, per-feed lists, counts): without these every
+		// navigation scans the whole article table as the library grows.
+		index('article_feed_idx').on(t.feedId),
+		index('article_published_idx').on(t.publishedAt),
+		index('article_created_idx').on(t.createdAt)
+	]
 );
 
 export const subscription = pgTable(
@@ -132,7 +140,9 @@ export const userArticleState = pgTable(
 	},
 	(t) => [
 		uniqueIndex('user_article_state_user_article_idx').on(t.userId, t.articleId),
-		index('user_article_state_article_idx').on(t.articleId)
+		index('user_article_state_article_idx').on(t.articleId),
+		// Affinity pass reads recent engagement per user ordered by recency.
+		index('user_article_state_user_updated_idx').on(t.userId, t.updatedAt)
 	]
 );
 

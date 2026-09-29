@@ -625,25 +625,36 @@ export interface MmrOptions {
 	perFeedCap?: number;
 	perTopicCap?: number;
 	dupThreshold?: number;
+	/** Stop after this many picks (callers only display the top `limit`). */
+	maxResults?: number;
 }
 
 /**
  * MMR rerank: greedily pick the item maximizing
  * λ·score − (1−λ)·maxSimilarityToPicked, subject to per-feed and per-topic
  * caps. Caps relax (topics first, then feeds) if the list can't be filled,
- * so the output is always a permutation of the deduped input.
+ * so the output is always a permutation of the deduped input (or its top
+ * `maxResults` prefix when set).
+ *
+ * Performance: max-similarity to the picked set is cached incrementally, so
+ * each pair is compared once (O(n²) cosine ops). The previous version
+ * recomputed similarity against every picked item on every round (O(n³)),
+ * which took ~10s for a 550-item candidate window and made Recommended
+ * look hung.
  */
 export function rankWithMMR(items: RankItem[], opts: MmrOptions = {}): number[] {
 	const {
 		lambda = MMR_LAMBDA,
 		perFeedCap = 3,
 		perTopicCap = 2,
-		dupThreshold = DEDUP_SIM_THRESHOLD
+		dupThreshold = DEDUP_SIM_THRESHOLD,
+		maxResults = items.length
 	} = opts;
 	const remaining = collapseNearDuplicates(
 		[...items].sort((a, b) => b.score - a.score),
 		dupThreshold
 	);
+	const target = Math.min(maxResults, remaining.length);
 	const picked: RankItem[] = [];
 	const feedCounts = new Map<number, number>();
 	const topicCounts = new Map<string, number>();
@@ -663,20 +674,17 @@ export function rankWithMMR(items: RankItem[], opts: MmrOptions = {}): number[] 
 		return 0;
 	};
 
+	// Incremental max-similarity of each remaining item to the picked set.
+	const maxSims = Array.from<number>({ length: remaining.length }).fill(0);
 	let relaxTopic = false;
 	let relaxFeed = false;
-	while (remaining.length > 0) {
+	while (remaining.length > 0 && picked.length < target) {
 		let bestIdx = -1;
 		let bestVal = -Infinity;
 		for (let i = 0; i < remaining.length; i++) {
 			const it = remaining[i];
 			if (violates(it, relaxFeed, relaxTopic)) continue;
-			let maxSim = 0;
-			for (const p of picked) {
-				const s = pairSim(it, p);
-				if (s > maxSim) maxSim = s;
-			}
-			const val = lambda * it.score - (1 - lambda) * maxSim;
+			const val = lambda * it.score - (1 - lambda) * maxSims[i];
 			if (val > bestVal) {
 				bestVal = val;
 				bestIdx = i;
@@ -694,9 +702,15 @@ export function rankWithMMR(items: RankItem[], opts: MmrOptions = {}): number[] 
 			bestIdx = 0;
 		}
 		const [next] = remaining.splice(bestIdx, 1);
+		maxSims.splice(bestIdx, 1);
 		picked.push(next);
 		feedCounts.set(next.feedId, (feedCounts.get(next.feedId) ?? 0) + 1);
 		for (const t of topicsOf(next)) topicCounts.set(t, (topicCounts.get(t) ?? 0) + 1);
+		// One new row of similarities: update each survivor's max.
+		for (let i = 0; i < remaining.length; i++) {
+			const s = pairSim(remaining[i], next);
+			if (s > maxSims[i]) maxSims[i] = s;
+		}
 	}
 	return picked.map((i) => i.id);
 }

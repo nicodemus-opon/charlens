@@ -305,6 +305,8 @@
 		url.searchParams.delete('collection');
 		url.searchParams.delete('view');
 		url.searchParams.delete('q');
+		url.searchParams.delete('shuffle');
+		url.searchParams.delete('deep');
 		url.searchParams.delete('article');
 		return `${url.pathname}?${url.searchParams.toString()}`;
 	}
