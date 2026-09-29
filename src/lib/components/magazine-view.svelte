@@ -209,49 +209,6 @@
 					</div>
 				{/if}
 			</div>
-			{#each sections.desks as desk (desk.tag.id)}
-				<div class="flex items-center gap-3 py-3">
-					<h2 class="shrink-0 text-base font-bold tracking-tight text-foreground capitalize">
-						{desk.tag.name}
-					</h2>
-					<Separator class="flex-1" />
-					<a
-						href={tagFilterHref(desk.tag.id)}
-						class="shrink-0 text-xs font-medium text-primary hover:underline focus-visible:outline-none"
-					>
-						View all
-					</a>
-				</div>
-				<div class={deskGridClass(desk.articles.length)}>
-					{#each desk.articles as a (a.id)}
-						{@const isSelected = selectedId === String(a.id)}
-						<a
-							href={articleHref(a.id)}
-							onclick={() => onSelect?.(a.id)}
-							aria-current={isSelected ? 'true' : undefined}
-							class={cn(
-								'block min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-								isSelected && 'ring-2 ring-ring'
-							)}
-						>
-							<Card.Root class="h-full min-w-0 overflow-hidden">
-								{@render thumb(a, 'aspect-video')}
-								<Card.Content class="flex min-w-0 flex-1 flex-col">
-									<div class="flex min-w-0 flex-col gap-1">
-										{@render kicker(a)}
-										<h3
-											class="line-clamp-2 text-sm font-bold tracking-tight text-balance text-foreground"
-										>
-											{a.title}
-										</h3>
-										<p class="truncate text-xs text-muted-foreground">{byline(a)}</p>
-									</div>
-								</Card.Content>
-							</Card.Root>
-						</a>
-					{/each}
-				</div>
-			{/each}
 			{#if sections.latest.length > 0}
 				<div class="flex items-center gap-3 py-3">
 					<h2 class="shrink-0 text-base font-bold tracking-tight text-foreground">Latest</h2>
@@ -300,6 +257,49 @@
 					{/each}
 				</div>
 			{/if}
+			{#each sections.desks as desk (desk.tag.id)}
+				<div class="flex items-center gap-3 py-3">
+					<h2 class="shrink-0 text-base font-bold tracking-tight text-foreground capitalize">
+						{desk.tag.name}
+					</h2>
+					<Separator class="flex-1" />
+					<a
+						href={tagFilterHref(desk.tag.id)}
+						class="shrink-0 text-xs font-medium text-primary hover:underline focus-visible:outline-none"
+					>
+						View all
+					</a>
+				</div>
+				<div class={deskGridClass(desk.articles.length)}>
+					{#each desk.articles as a (a.id)}
+						{@const isSelected = selectedId === String(a.id)}
+						<a
+							href={articleHref(a.id)}
+							onclick={() => onSelect?.(a.id)}
+							aria-current={isSelected ? 'true' : undefined}
+							class={cn(
+								'block min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+								isSelected && 'ring-2 ring-ring'
+							)}
+						>
+							<Card.Root class="h-full min-w-0 overflow-hidden">
+								{@render thumb(a, 'aspect-video')}
+								<Card.Content class="flex min-w-0 flex-1 flex-col">
+									<div class="flex min-w-0 flex-col gap-1">
+										{@render kicker(a)}
+										<h3
+											class="line-clamp-2 text-sm font-bold tracking-tight text-balance text-foreground"
+										>
+											{a.title}
+										</h3>
+										<p class="truncate text-xs text-muted-foreground">{byline(a)}</p>
+									</div>
+								</Card.Content>
+							</Card.Root>
+						</a>
+					{/each}
+				</div>
+			{/each}
 			{#if sections.rest.length > 0}
 				<div class="flex items-center gap-3 py-3">
 					<h2 class="shrink-0 text-base font-bold tracking-tight text-foreground">

@@ -28,8 +28,8 @@ describe('buildMagazineSections', () => {
 		expect(buildMagazineSections([])).toEqual({
 			lead: null,
 			secondary: [],
-			desks: [],
 			latest: [],
+			desks: [],
 			rest: []
 		});
 	});
@@ -75,8 +75,8 @@ describe('buildMagazineSections', () => {
 		const ids = [
 			sections.lead!.id,
 			...sections.secondary.map((a) => a.id),
-			...sections.desks.flatMap((d) => d.articles.map((a) => a.id)),
 			...sections.latest.map((a) => a.id),
+			...sections.desks.flatMap((d) => d.articles.map((a) => a.id)),
 			...sections.rest.map((a) => a.id)
 		];
 		expect(new Set(ids).size).toBe(articles.length);
@@ -120,5 +120,21 @@ describe('buildTopicDesks', () => {
 		expect(sections.desks).toHaveLength(1);
 		expect(sections.desks[0].articles.map((a) => a.id)).toEqual([4, 5, 6]);
 		expect(sections.latest.map((a) => a.id)).toEqual([7, 8]);
+		expect(sections.rest).toEqual([]);
+	});
+
+	it('caps latest and more headlines so the page tail stays short', () => {
+		const articles = [
+			row({ id: 1, isRead: false, imageUrl: 'https://example.com/1.jpg' }),
+			row({ id: 2 }),
+			row({ id: 3 }),
+			...Array.from({ length: 15 }, (_, i) => row({ id: 4 + i }))
+		];
+		const sections = buildMagazineSections(articles);
+		expect(sections.desks).toEqual([]);
+		expect(sections.latest).toHaveLength(6);
+		expect(sections.rest).toHaveLength(5);
+		expect(sections.latest.map((a) => a.id)).toEqual([4, 5, 6, 7, 8, 9]);
+		expect(sections.rest.map((a) => a.id)).toEqual([10, 11, 12, 13, 14]);
 	});
 });

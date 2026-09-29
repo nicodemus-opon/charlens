@@ -10,16 +10,19 @@ export interface TopicDesk {
 export interface MagazineSections {
 	lead: ArticleRow | null;
 	secondary: ArticleRow[];
+	/** Latest stories that earned no topic desk, shown before the desks. */
+	latest: ArticleRow[];
 	/** Topic desks built from the AI tags on the remaining stories. */
 	desks: TopicDesk[];
-	latest: ArticleRow[];
+	/** Short tail of extra headlines shown last. */
 	rest: ArticleRow[];
 }
 
-const MAX_DESKS = 3;
+const MAX_DESKS = 6;
 const MIN_DESK_STORIES = 2;
 const MAX_DESK_STORIES = 3;
-const MAX_LATEST = 10;
+const MAX_LATEST = 6;
+const MAX_MORE = 5;
 
 /**
  * Groups stories into topic desks from their AI tags.
@@ -68,13 +71,14 @@ export function buildTopicDesks(
  * Lays out the front page like an editor.
  *
  * The lead prefers an unread story with an image; the next two stories back
- * it up. Everything after the hero is filed into topic desks from the AI
- * tags, and whatever has no desk beat lands in Latest, then More headlines.
- * Filtering (Today, feed, collection, search) scopes the whole edition.
+ * it up. Stories with no topic desk beat are split into Latest (shown before
+ * the desks) and a short More headlines tail shown last; the remainder is
+ * filed into topic desks from the AI tags. Filtering (Today, feed,
+ * collection, search) scopes the whole edition.
  */
 export function buildMagazineSections(articles: ArticleRow[]): MagazineSections {
 	if (articles.length === 0) {
-		return { lead: null, secondary: [], desks: [], latest: [], rest: [] };
+		return { lead: null, secondary: [], latest: [], desks: [], rest: [] };
 	}
 	let leadIndex = articles.findIndex((a) => !a.isRead && a.imageUrl);
 	if (leadIndex < 0) leadIndex = articles.findIndex((a) => !a.isRead);
@@ -89,8 +93,8 @@ export function buildMagazineSections(articles: ArticleRow[]): MagazineSections 
 	return {
 		lead,
 		secondary,
-		desks,
 		latest: leftover.slice(0, MAX_LATEST),
-		rest: leftover.slice(MAX_LATEST)
+		desks,
+		rest: leftover.slice(MAX_LATEST, MAX_LATEST + MAX_MORE)
 	};
 }
