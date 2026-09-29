@@ -463,15 +463,10 @@
 									{...props}
 								>
 									<Newspaper />
-									<span class={counts.today > 0 ? 'mr-6 min-w-0 flex-1 truncate' : ''}>
-										Today
-									</span>
+									<span class="min-w-0 flex-1 truncate"> Today </span>
 								</a>
 							{/snippet}
 						</Sidebar.MenuButton>
-						{#if counts.today > 0}
-							<Sidebar.MenuBadge>{counts.today}</Sidebar.MenuBadge>
-						{/if}
 					</Sidebar.MenuItem>
 					<Sidebar.MenuItem>
 						<Sidebar.MenuButton
@@ -510,19 +505,10 @@
 									}}
 								>
 									<Compass />
-									<span
-										class={(counts.recommended ?? 0) > 0
-											? 'mr-6 min-w-0 flex-1 truncate'
-											: 'min-w-0 flex-1 truncate'}
-									>
-										Recommended
-									</span>
+									<span class="min-w-0 flex-1 truncate"> Recommended </span>
 								</a>
 							{/snippet}
 						</Sidebar.MenuButton>
-						{#if (counts.recommended ?? 0) > 0}
-							<Sidebar.MenuBadge>{counts.recommended}</Sidebar.MenuBadge>
-						{/if}
 					</Sidebar.MenuItem>
 				</Sidebar.Menu>
 			</Sidebar.GroupContent>

@@ -20,6 +20,7 @@
 		Tag
 	} from '@lucide/svelte';
 	import { Toggle } from '$lib/components/ui/toggle/index.js';
+	import ArticleImage from '$lib/components/article-image.svelte';
 	import type { TagRef } from '$lib/tags';
 	import EditTagsDialog from './edit-tags-dialog.svelte';
 
@@ -64,6 +65,30 @@
 		if (!d) return '';
 		const date = d instanceof Date ? d : new Date(d);
 		return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+	}
+
+	/**
+	 * Feed body HTML ({@html} below) often embeds remote images that are dead
+	 * (hotlink protection, expired hosts). Remove them so the reader never
+	 * shows native broken-image boxes.
+	 */
+	function hideBrokenImages(node: HTMLElement) {
+		const cleanups: Array<() => void> = [];
+		const watch = (img: HTMLImageElement) => {
+			if (img.complete && img.naturalWidth === 0) {
+				img.remove();
+				return;
+			}
+			const onError = () => img.remove();
+			img.addEventListener('error', onError, { once: true });
+			cleanups.push(() => img.removeEventListener('error', onError));
+		};
+		node.querySelectorAll('img').forEach(watch);
+		return {
+			destroy() {
+				for (const cleanup of cleanups) cleanup();
+			}
+		};
 	}
 
 	let fulltextBusy = $state(false);
@@ -294,16 +319,16 @@
 							</div>
 						{/if}
 						<Separator />
-						{#if article.imageUrl}
-							<img
-								src={article.imageUrl}
-								alt={article.title}
-								class="aspect-video w-full rounded-xl bg-muted object-cover"
-							/>
-						{/if}
+						<ArticleImage
+							seed={{ id: article.id, feedTitle: article.feedTitle, title: article.title }}
+							src={article.imageUrl}
+							alt={article.title}
+							class="aspect-video w-full rounded-xl"
+						/>
 						{#if article.contentHtml}
 							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 							<div
+								use:hideBrokenImages
 								class="prose max-w-none text-base leading-relaxed text-foreground prose-neutral sm:text-sm dark:prose-invert"
 							>
 								{@html article.contentHtml}

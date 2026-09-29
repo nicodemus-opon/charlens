@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import type { ArticleRow } from '$lib/article.js';
+	import ArticleImage from '$lib/components/article-image.svelte';
 	import { buildMagazineSections } from '$lib/magazine.js';
-	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
@@ -36,9 +36,6 @@
 	const selectedId = $derived(href ? null : $page.url.searchParams.get('article'));
 	const sections = $derived(buildMagazineSections(articles));
 
-	// Images that failed to load fall back to the feed avatar.
-	let failedImages = $state(new Set<number>());
-
 	function articleHref(id: number) {
 		if (href) return href(id);
 		const url = new URL($page.url);
@@ -68,10 +65,6 @@
 	function deskGridClass(count: number) {
 		if (count >= 3) return 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3';
 		return 'grid gap-3 sm:grid-cols-2';
-	}
-
-	function feedInitials(feedTitle: string) {
-		return feedTitle.slice(0, 2).toUpperCase();
 	}
 
 	function dateLabel(d: Date | string | null) {
@@ -119,21 +112,7 @@
 {/snippet}
 
 {#snippet thumb(a: ArticleRow, sizes: string)}
-	{#if a.imageUrl && !failedImages.has(a.id)}
-		<img
-			src={a.imageUrl}
-			alt=""
-			loading="lazy"
-			onerror={() => failedImages.add(a.id)}
-			class={cn('w-full bg-muted object-cover', sizes)}
-		/>
-	{:else}
-		<div class={cn('flex w-full items-center justify-center bg-muted', sizes)}>
-			<Avatar.Root class="size-8">
-				<Avatar.Fallback>{feedInitials(a.feedTitle)}</Avatar.Fallback>
-			</Avatar.Root>
-		</div>
-	{/if}
+	<ArticleImage seed={a} src={a.imageUrl} alt="" class={cn('w-full', sizes)} />
 {/snippet}
 
 {#if articles.length === 0 || !sections.lead}

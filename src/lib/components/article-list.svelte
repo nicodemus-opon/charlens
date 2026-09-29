@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { page } from '$app/stores';
 	import type { ArticleRow, ArticleView } from '$lib/article.js';
-	import * as Avatar from '$lib/components/ui/avatar/index.js';
+	import ArticleImage from '$lib/components/article-image.svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
@@ -35,18 +35,11 @@
 
 	const selectedId = $derived(href ? null : $page.url.searchParams.get('article'));
 
-	// Tracks images that failed to load so grid cards fall back to the feed avatar.
-	let failedImages = $state(new Set<number>());
-
 	function articleHref(id: number) {
 		if (href) return href(id);
 		const url = new URL($page.url);
 		url.searchParams.set('article', String(id));
 		return `${url.pathname}?${url.searchParams.toString()}`;
-	}
-
-	function feedInitials(title: string) {
-		return title.slice(0, 2).toUpperCase();
 	}
 
 	function dateLabel(d: Date | string | null) {
@@ -89,21 +82,7 @@
 				)}
 			>
 				<Card.Root class="h-full min-w-0">
-					{#if a.imageUrl && !failedImages.has(a.id)}
-						<img
-							src={a.imageUrl}
-							alt=""
-							loading="lazy"
-							onerror={() => failedImages.add(a.id)}
-							class="aspect-video w-full bg-muted object-cover"
-						/>
-					{:else}
-						<div class="flex aspect-video w-full items-center justify-center bg-muted">
-							<Avatar.Root class="size-8">
-								<Avatar.Fallback>{feedInitials(a.feedTitle)}</Avatar.Fallback>
-							</Avatar.Root>
-						</div>
-					{/if}
+					<ArticleImage seed={a} src={a.imageUrl} alt="" class="aspect-video w-full" />
 					<Card.Content class="flex min-w-0 flex-1 flex-col">
 						<div class="flex min-w-0 flex-col gap-1">
 							<div class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
@@ -190,18 +169,12 @@
 					isSelected && 'bg-accent'
 				)}
 			>
-				{#if a.imageUrl}
-					<img
-						src={a.imageUrl}
-						alt=""
-						loading="lazy"
-						class="size-14 shrink-0 rounded-lg bg-muted object-cover @sm:size-16 @md:size-20 @lg:size-24"
-					/>
-				{:else}
-					<Avatar.Root class="size-14 shrink-0 @sm:size-16 @md:size-20 @lg:size-24">
-						<Avatar.Fallback>{feedInitials(a.feedTitle)}</Avatar.Fallback>
-					</Avatar.Root>
-				{/if}
+				<ArticleImage
+					seed={a}
+					src={a.imageUrl}
+					alt=""
+					class="size-14 shrink-0 rounded-lg @sm:size-16 @md:size-20 @lg:size-24"
+				/>
 				<div class="flex min-w-0 flex-1 flex-col gap-1.5">
 					<div class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
 						<span class="truncate">{a.feedTitle}</span>
