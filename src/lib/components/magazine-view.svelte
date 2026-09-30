@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import type { ArticleRow } from '$lib/article.js';
 	import ArticleImage from '$lib/components/article-image.svelte';
-	import { buildMagazineSections } from '$lib/magazine.js';
+	import { buildMagazineSections, getStoryEmphasis } from '$lib/magazine.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
@@ -61,10 +61,34 @@
 		return `${url.pathname}?${url.searchParams.toString()}`;
 	}
 
-	/** Desk grids tighten as the story count drops so small desks never look stranded. */
-	function deskGridClass(count: number) {
-		if (count >= 3) return 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3';
-		return 'grid gap-3 sm:grid-cols-2';
+	/** One clean 12-col row: items stretch to equal height, edges align. */
+	function rowGridClass() {
+		return 'grid grid-cols-12 items-stretch gap-3';
+	}
+
+	/** Static span classes only - lint-safe, every row sums to 12. */
+	function spanClass(span: number) {
+		if (span === 12) return 'col-span-12';
+		if (span === 6) return 'col-span-12 sm:col-span-6';
+		if (span === 4) return 'col-span-12 sm:col-span-6 lg:col-span-4';
+		return 'col-span-12 sm:col-span-6 lg:col-span-3';
+	}
+
+	/** Smart title size: image-led stories earn the bigger headline. */
+	function titleClass(a: ArticleRow, base: 'lead' | 'card') {
+		const emphasis = getStoryEmphasis(a);
+		if (base === 'lead')
+			return 'line-clamp-2 text-xl font-bold tracking-tight text-balance text-foreground';
+		if (emphasis === 'visual' || emphasis === 'featured')
+			return 'line-clamp-2 text-base font-bold tracking-tight text-balance text-foreground';
+		if (emphasis === 'brief')
+			return 'line-clamp-1 text-sm font-medium tracking-tight text-foreground';
+		return 'line-clamp-2 text-sm font-bold tracking-tight text-balance text-foreground';
+	}
+
+	/** Brief stories skip their excerpt to stay scannable. */
+	function showExcerpt(a: ArticleRow) {
+		return Boolean(a.excerpt) && getStoryEmphasis(a) !== 'brief';
 	}
 
 	function dateLabel(d: Date | string | null) {
@@ -113,6 +137,40 @@
 
 {#snippet thumb(a: ArticleRow, sizes: string)}
 	<ArticleImage seed={a} src={a.imageUrl} alt="" class={cn('w-full', sizes)} />
+{/snippet}
+
+{#snippet storyCard(a: ArticleRow, wide = false)}
+	{@const isSelected = selectedId === String(a.id)}
+	<a
+		href={articleHref(a.id)}
+		onclick={() => onSelect?.(a.id)}
+		aria-current={isSelected ? 'true' : undefined}
+		class={cn(
+			'block h-full min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+			isSelected && 'ring-2 ring-ring'
+		)}
+	>
+		<Card.Root class={cn('h-full min-w-0 overflow-hidden', wide && 'sm:flex-row')}>
+			{#if wide}
+				<!-- Lone full-width story: horizontal card, not a giant hero. -->
+				<div class="w-full shrink-0 sm:w-1/2">
+					{@render thumb(a, 'aspect-video sm:h-full')}
+				</div>
+			{:else}
+				{@render thumb(a, 'aspect-video')}
+			{/if}
+			<Card.Content class="flex min-w-0 flex-1 flex-col">
+				<div class="flex min-w-0 flex-col gap-1">
+					{@render kicker(a)}
+					<h3 class={titleClass(a, 'card')}>{a.title}</h3>
+					{#if showExcerpt(a) && a.excerpt}
+						<p class="line-clamp-2 text-xs text-muted-foreground">{a.excerpt}</p>
+					{/if}
+					<p class="truncate text-xs text-muted-foreground">{byline(a)}</p>
+				</div>
+			</Card.Content>
+		</Card.Root>
+	</a>
 {/snippet}
 
 {#if articles.length === 0 || !sections.lead}
@@ -195,9 +253,7 @@
 									<Card.Content class="flex min-w-0 flex-1 flex-col">
 										<div class="flex min-w-0 flex-col gap-1">
 											{@render kicker(a)}
-											<h3
-												class="line-clamp-2 text-base font-bold tracking-tight text-balance text-foreground"
-											>
+											<h3 class={titleClass(a, 'card')}>
 												{a.title}
 											</h3>
 											<p class="truncate text-xs text-muted-foreground">{byline(a)}</p>
@@ -209,96 +265,73 @@
 					</div>
 				{/if}
 			</div>
-			{#if sections.latest.length > 0}
-				<div class="flex items-center gap-3 py-3">
-					<h2 class="shrink-0 text-base font-bold tracking-tight text-foreground">Latest</h2>
-					<Separator class="flex-1" />
-				</div>
-				<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-					{#each sections.latest as a (a.id)}
-						{@const isSelected = selectedId === String(a.id)}
+			{#each sections.blocks as block, bi (bi)}
+				{#if block.kind === 'latest'}
+					<div class="flex items-center gap-3 py-3">
+						<h2 class="shrink-0 text-base font-bold tracking-tight text-foreground">Latest</h2>
+						<Separator class="flex-1" />
+					</div>
+					<div class="flex flex-col gap-3">
+						{#each block.rows as row, ri (ri)}
+							<div class={rowGridClass()}>
+								{#each row.stories as st (st.article.id)}
+									<div class={cn(spanClass(st.span), 'min-w-0')}>
+										{@render storyCard(st.article, st.span === 12)}
+									</div>
+								{/each}
+							</div>
+						{/each}
+					</div>
+				{:else}
+					{@const desk = block.desk}
+					<div class="flex items-center gap-3 py-3">
+						<h2 class="shrink-0 text-base font-bold tracking-tight text-foreground capitalize">
+							{desk.tag.name}
+						</h2>
+						<Separator class="flex-1" />
 						<a
-							href={articleHref(a.id)}
-							onclick={() => onSelect?.(a.id)}
-							aria-current={isSelected ? 'true' : undefined}
-							class={cn(
-								'block min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-								isSelected && 'ring-2 ring-ring'
-							)}
+							href={tagFilterHref(desk.tag.id)}
+							class="shrink-0 text-xs font-medium text-primary hover:underline focus-visible:outline-none"
 						>
-							<Card.Root class="min-w-0">
-								<Card.Content class="flex min-w-0 flex-row gap-3">
-									<div class="flex min-w-0 flex-1 flex-col gap-1">
-										{@render kicker(a)}
-										<h3
-											class="line-clamp-2 text-sm font-bold tracking-tight text-balance text-foreground"
-										>
-											{a.title}
-										</h3>
-										{#if a.excerpt}
-											<p class="line-clamp-2 text-xs text-muted-foreground">{a.excerpt}</p>
-										{/if}
-										<p class="flex items-center gap-1.5 text-xs text-muted-foreground">
-											<span class="truncate">{byline(a)}</span>
-											{#if a.readMinutes}
-												<span class="flex shrink-0 items-center gap-1">
-													<Clock class="size-3" />
-													{a.readMinutes} min
-												</span>
-											{/if}
-										</p>
-									</div>
-									<div class="w-20 shrink-0 overflow-hidden rounded-lg">
-										{@render thumb(a, 'aspect-square h-full')}
-									</div>
-								</Card.Content>
-							</Card.Root>
+							View all
 						</a>
-					{/each}
-				</div>
-			{/if}
-			{#each sections.desks as desk (desk.tag.id)}
-				<div class="flex items-center gap-3 py-3">
-					<h2 class="shrink-0 text-base font-bold tracking-tight text-foreground capitalize">
-						{desk.tag.name}
-					</h2>
-					<Separator class="flex-1" />
-					<a
-						href={tagFilterHref(desk.tag.id)}
-						class="shrink-0 text-xs font-medium text-primary hover:underline focus-visible:outline-none"
-					>
-						View all
-					</a>
-				</div>
-				<div class={deskGridClass(desk.articles.length)}>
-					{#each desk.articles as a (a.id)}
-						{@const isSelected = selectedId === String(a.id)}
-						<a
-							href={articleHref(a.id)}
-							onclick={() => onSelect?.(a.id)}
-							aria-current={isSelected ? 'true' : undefined}
-							class={cn(
-								'block min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-								isSelected && 'ring-2 ring-ring'
-							)}
-						>
-							<Card.Root class="h-full min-w-0 overflow-hidden">
-								{@render thumb(a, 'aspect-video')}
-								<Card.Content class="flex min-w-0 flex-1 flex-col">
-									<div class="flex min-w-0 flex-col gap-1">
-										{@render kicker(a)}
-										<h3
-											class="line-clamp-2 text-sm font-bold tracking-tight text-balance text-foreground"
-										>
-											{a.title}
-										</h3>
-										<p class="truncate text-xs text-muted-foreground">{byline(a)}</p>
+					</div>
+					<div class="flex flex-col gap-3">
+						{#each desk.rows as row, ri (ri)}
+							<div class={rowGridClass()}>
+								{#each row.stories as st (st.article.id)}
+									<div class={cn(spanClass(st.span), 'min-w-0')}>
+										{@render storyCard(st.article, st.span === 12)}
 									</div>
-								</Card.Content>
-							</Card.Root>
-						</a>
-					{/each}
-				</div>
+								{/each}
+							</div>
+						{/each}
+					</div>
+					{#if desk.more.length > 0}
+						<div class="mt-3 overflow-hidden rounded-xl border border-border bg-card">
+							{#each desk.more as a (a.id)}
+								{@const isSelected = selectedId === String(a.id)}
+								<a
+									href={articleHref(a.id)}
+									onclick={() => onSelect?.(a.id)}
+									aria-current={isSelected ? 'true' : undefined}
+									class={cn(
+										'flex min-w-0 items-center gap-3 border-b border-border px-4 py-2 transition-colors last:border-b-0 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none active:bg-accent',
+										isSelected && 'bg-accent'
+									)}
+								>
+									<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+										<span class="truncate text-sm font-medium text-foreground">{a.title}</span>
+										<span class="truncate text-xs text-muted-foreground">{byline(a)}</span>
+									</span>
+									<span class="shrink-0 text-xs text-muted-foreground">
+										{a.readMinutes ? `${a.readMinutes} min` : dateLabel(a.publishedAt)}
+									</span>
+								</a>
+							{/each}
+						</div>
+					{/if}
+				{/if}
 			{/each}
 			{#if sections.rest.length > 0}
 				<div class="flex items-center gap-3 py-3">
