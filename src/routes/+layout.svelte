@@ -1,19 +1,45 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import '@fontsource-variable/inter/opsz.css';
+	import '@fontsource-variable/inter/opsz-italic.css';
+	import '@fontsource-variable/jetbrains-mono';
 	import './layout.css';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { ModeWatcher } from 'mode-watcher';
+	import { ModeWatcher, setMode } from 'mode-watcher';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
 	import { initPwa } from '$lib/pwa';
+	import { settingsStore } from '$lib/settings.svelte.js';
 
 	let { children, data } = $props();
 
 	// The login page renders bare — no sidebar, no app chrome.
 	const isLogin = $derived($page.route.id === '/login');
 
-	onMount(initPwa);
+	onMount(() => {
+		initPwa();
+		// Account settings are the cross-device source of truth; the store
+		// caches them per-user in localStorage for instant first paint.
+		settingsStore.init(
+			(data.settings ?? {}) as Record<string, unknown>,
+			data.user?.id ?? 'anonymous'
+		);
+		const theme = settingsStore.get('theme');
+		if (theme === 'light' || theme === 'dark' || theme === 'system') setMode(theme);
+	});
+
+	function handleShortcut(e: KeyboardEvent) {
+		const target = e.target as HTMLElement | null;
+		if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+		if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+			e.preventDefault();
+			goto('/settings');
+		}
+	}
 </script>
+
+<svelte:document onkeydown={handleShortcut} />
 
 <svelte:head>
 	<title>charlens</title>

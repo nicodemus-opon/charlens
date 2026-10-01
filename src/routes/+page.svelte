@@ -9,6 +9,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { shouldShowFocus, type ArticleView } from '$lib/article.js';
 	import { defaultViewForScope, getViewScopeKey } from '$lib/view-prefs.js';
+	import { settingsStore } from '$lib/settings.svelte.js';
 	import ArticleBrowser from '$lib/components/article-browser.svelte';
 	import ArticleList from '$lib/components/article-list.svelte';
 	import ArticleViewToggle from '$lib/components/article-view-toggle.svelte';
@@ -51,12 +52,23 @@
 		return null;
 	}
 
-	/** Effective layout for a scope: saved pref, else the scope default
-	 * (magazine for Today / Read later / Recommended, with the legacy
-	 * global as fallback everywhere else). */
+	/** Effective layout for a scope: saved pref, else the account default
+	 * view from Settings (`defaultView`), with the magazine default kept for
+	 * Today / Read later / Recommended when the account default is untouched,
+	 * else the legacy global as fallback. */
 	function viewForScope(scope: string, prefs: Record<string, unknown>): ArticleView {
 		const saved = prefs[scope];
 		if (isArticleView(saved)) return saved;
+		if (settingsStore.ready) {
+			const accountDefault = settingsStore.get('defaultView');
+			if (isArticleView(accountDefault)) {
+				// Preserve the editorial magazine default for the front-page
+				// scopes unless the user picked a different account default.
+				if (accountDefault !== 'list') return accountDefault;
+				if (defaultViewForScope(scope) === 'magazine') return 'magazine';
+				return accountDefault;
+			}
+		}
 		if (defaultViewForScope(scope) === 'magazine') return 'magazine';
 		return readLegacyView() ?? 'list';
 	}
@@ -96,9 +108,14 @@
 		if (!browser) return true;
 		try {
 			if (localStorage.getItem(`${PANEL_BASE}:${prefsUserId()}`) === 'closed') return false;
+			if (localStorage.getItem(`${PANEL_BASE}:${prefsUserId()}`) === 'open') return true;
 		} catch {
 			// Storage unavailable — use the default.
 		}
+		if (settingsStore.ready) return Boolean(settingsStore.get('panelDefaultOpen'));
+		const serverDefault = (data as { settings?: Record<string, unknown> }).settings
+			?.panelDefaultOpen;
+		if (typeof serverDefault === 'boolean') return serverDefault;
 		return true;
 	}
 
@@ -106,9 +123,14 @@
 		if (!browser) return true;
 		try {
 			if (localStorage.getItem(`${FOCUS_BASE}:${prefsUserId()}`) === 'off') return false;
+			if (localStorage.getItem(`${FOCUS_BASE}:${prefsUserId()}`) === 'on') return true;
 		} catch {
 			// Storage unavailable — use the default.
 		}
+		if (settingsStore.ready) return Boolean(settingsStore.get('focusModeDefault'));
+		const serverDefault = (data as { settings?: Record<string, unknown> }).settings
+			?.focusModeDefault;
+		if (typeof serverDefault === 'boolean') return serverDefault;
 		return true;
 	}
 
@@ -147,6 +169,16 @@
 		// Prefs were already read synchronously during init so the first
 		// client render uses them; flipping the flag here swaps the loading
 		// skeletons for the real lists with no intermediate wrong-view paint.
+		if (!settingsStore.ready) {
+			settingsStore.init(
+				(data as { settings?: Record<string, unknown> }).settings ?? {},
+				prefsUserId()
+			);
+		}
+		// Re-resolve boot view/panel/focus once account settings are known.
+		view = viewForScope(viewScope, viewPrefs);
+		panelOpen = readStoredPanel();
+		focusMode = readStoredFocus();
 		prefsRestored = true;
 
 		function onKeyDown(e: KeyboardEvent) {
@@ -195,7 +227,7 @@
 		const scope = viewScope;
 		if (scope !== lastScope) {
 			lastScope = scope;
-			const next = viewPrefs[scope] ?? defaultViewForScope(scope);
+			const next = viewPrefs[scope] ?? viewForScope(scope, viewPrefs);
 			if (next !== view) view = next;
 		}
 	});
@@ -370,6 +402,33 @@
 		if (data.filter === 'recommended') return 'Recommended';
 		return 'All stories';
 	});
+
+	// Account display settings (SSR-safe: layout payload first, live store after).
+	function settingBool(key: string, fallback = true): boolean {
+		if (settingsStore.ready) return Boolean(settingsStore.get(key as never));
+		const server = (data as { settings?: Record<string, unknown> }).settings?.[key];
+		if (typeof server === 'boolean') return server;
+		return fallback;
+	}
+	function settingStr(key: string, fallback: string): string {
+		if (settingsStore.ready) return String(settingsStore.get(key as never));
+		const server = (data as { settings?: Record<string, unknown> }).settings?.[key];
+		if (typeof server === 'string') return server;
+		return fallback;
+	}
+	const showImages = $derived(settingBool('showImagesInList', true));
+	const showExcerpts = $derived(settingBool('showExcerpts', true));
+	const showMinutes = $derived(settingBool('showReadMinutes', true));
+	const openLinksNewTab = $derived(settingBool('openLinksNewTab', true));
+	const autoLoadFullText = $derived(settingBool('autoLoadFullText', false));
+	const telemetryEnabled = $derived(settingBool('telemetryEnabled', true));
+	const listDensity = $derived(settingStr('density', 'comfortable'));
+	const readerDensity = $derived(listDensity === 'compact' ? 'compact' : 'comfortable') as
+		'comfortable' | 'compact';
+	const readerFontSize = $derived(
+		settingStr('readerFontSize', 'comfortable') as 'compact' | 'comfortable' | 'large'
+	);
+	const readerWidth = $derived(settingStr('readerWidth', 'narrow') as 'narrow' | 'wide');
 </script>
 
 <svelte:head>
@@ -438,6 +497,10 @@
 					articles={data.articles}
 					view={view === 'magazine' ? 'grid' : view}
 					gridClass="grid-cols-1"
+					{showImages}
+					{showExcerpts}
+					showReadMinutes={showMinutes}
+					density={readerDensity}
 					onSelect={() => {
 						if (focusMode) panelOpen = false;
 					}}
@@ -461,6 +524,11 @@
 					article={data.selected}
 					showBack={!panelOpen && hasArticleParam}
 					{focusMode}
+					{readerFontSize}
+					{readerWidth}
+					{openLinksNewTab}
+					{autoLoadFullText}
+					{telemetryEnabled}
 					tagHref={tagFilterHref}
 					onTagClick={() => (tagListRequested = true)}
 					onBack={goBack}
@@ -473,6 +541,10 @@
 					bind:view
 					{focusMode}
 					ready={prefsRestored}
+					{showImages}
+					{showExcerpts}
+					showReadMinutes={showMinutes}
+					density={readerDensity}
 					onExpand={() => (panelOpen = true)}
 					onSelect={() => {
 						if (!focusMode) panelOpen = true;

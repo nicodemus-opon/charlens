@@ -8,6 +8,8 @@ import {
 	listTags
 } from '$lib/server/rss/refresh';
 
+import { getUserSettings } from '$lib/server/settings';
+
 export const load: LayoutServerLoad = async ({ locals, cookies, route }) => {
 	const user = locals.user
 		? {
@@ -32,15 +34,20 @@ export const load: LayoutServerLoad = async ({ locals, cookies, route }) => {
 			tags: [],
 			counts: { today: 0, recommended: 0 },
 			user,
-			sidebarOpen
+			sidebarOpen,
+			settings: {}
 		};
 
 	try {
-		const [feeds, collections, tags, recommended] = await Promise.all([
+		const [feeds, collections, tags, recommended, settings] = await Promise.all([
 			getFeedsWithCounts(user.id),
 			listCollections(user.id),
 			listTags(user.id),
-			getRecommendedCount(user.id)
+			getRecommendedCount(user.id),
+			getUserSettings(user.id).catch((e) => {
+				console.error('settings load failed', e);
+				return {};
+			})
 		]);
 		const todayUnread = feeds.reduce((n, f) => n + (f.unread ?? 0), 0);
 		return {
@@ -49,7 +56,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies, route }) => {
 			tags,
 			counts: { today: todayUnread, recommended },
 			user,
-			sidebarOpen
+			sidebarOpen,
+			settings
 		};
 	} catch {
 		return {
@@ -58,7 +66,8 @@ export const load: LayoutServerLoad = async ({ locals, cookies, route }) => {
 			tags: [],
 			counts: { today: 0, recommended: 0 },
 			user,
-			sidebarOpen
+			sidebarOpen,
+			settings: {}
 		};
 	}
 };

@@ -4,6 +4,7 @@ import { requireUser } from '$lib/server/guard';
 import { parseSmartRules } from '$lib/collections';
 import { getViewScopeKey } from '$lib/view-prefs';
 import { getViewPrefs, isArticleView, setViewPref } from '$lib/server/view-prefs';
+import { getUserSettings } from '$lib/server/settings';
 import {
 	addFeed,
 	createCollection,
@@ -92,11 +93,23 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		const articlesWithTags = articles.map((a) => ({ ...a, tags: tagMap.get(a.id) ?? [] }));
 		const selectedId = articleId ? Number(articleId) : articlesWithTags[0]?.id;
 		const selected = selectedId ? await getArticleById(user.id, selectedId) : null;
-		if (selected && !selected.isRead) {
+		// Account settings gate auto-read + telemetry (Settings → reading &
+		// privacy). Pre-migration DBs fall back to the historical always-on.
+		let markReadOnOpen = true;
+		let telemetryEnabled = true;
+		try {
+			const settings = await getUserSettings(user.id);
+			if (typeof settings.markReadOnOpen === 'boolean') markReadOnOpen = settings.markReadOnOpen;
+			if (typeof settings.telemetryEnabled === 'boolean')
+				telemetryEnabled = settings.telemetryEnabled;
+		} catch (e) {
+			console.error('settings load failed', e);
+		}
+		if (selected && !selected.isRead && markReadOnOpen) {
 			await markRead(user.id, selected.id, true);
 			selected.isRead = true;
 		}
-		if (selected && articleId) {
+		if (selected && articleId && telemetryEnabled) {
 			await logArticleEvent(user.id, selected.id, 'open');
 		}
 		const selectedTags = selected ? await getArticleTags(user.id, selected.id) : [];

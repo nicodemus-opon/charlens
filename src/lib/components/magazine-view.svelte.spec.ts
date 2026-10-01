@@ -40,12 +40,11 @@ describe('magazine-view', () => {
 	const href = (id: number) => `#article-${id}`;
 	const tagHref = (tagId: number) => `#tag-${tagId}`;
 
-	it('renders the masthead, hero lead and topic desks', async () => {
-		render(MagazineView, { articles, title: 'Today', href, tagHref });
+	it('renders the hero lead and topic desks without a duplicate masthead', async () => {
+		render(MagazineView, { articles, href, tagHref });
 
-		// Masthead edition scope.
-		await expect.element(page.getByRole('heading', { name: 'Today' })).toBeInTheDocument();
-		await expect.element(page.getByText(/8 stories · .* unread · 2 topics/)).toBeInTheDocument();
+		// No duplicate feed title / counts / edition date — the browser toolbar owns the header.
+		await expect.element(page.getByRole('heading', { name: 'Today' })).not.toBeInTheDocument();
 
 		// Hero lead + secondary stories.
 		await expect.element(page.getByText('Story 1')).toBeInTheDocument();

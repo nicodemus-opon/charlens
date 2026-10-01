@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { ChevronsUpDown, LogOut, PanelLeft, Plus, RefreshCw } from '@lucide/svelte';
+	import { ChevronsUpDown, LogOut, PanelLeft, Plus, RefreshCw, Settings } from '@lucide/svelte';
+	import { goto } from '$app/navigation';
 	import { authClient } from '$lib/auth-client.js';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import ModeToggle from './mode-toggle.svelte';
@@ -88,7 +88,6 @@
 						<span class="truncate font-medium">{name}</span>
 						<span class="truncate text-xs text-muted-foreground">{subtitle}</span>
 					</div>
-					<Badge variant="secondary">Self-hosted</Badge>
 				</DropdownMenu.Label>
 				<DropdownMenu.Separator />
 				<DropdownMenu.Group>
@@ -104,6 +103,11 @@
 				<DropdownMenu.Separator />
 				<DropdownMenu.Group>
 					<ModeToggle />
+					<DropdownMenu.Item onSelect={() => goto('/settings')}>
+						<Settings />
+						Settings
+						<DropdownMenu.Shortcut>⌘,</DropdownMenu.Shortcut>
+					</DropdownMenu.Item>
 					<DropdownMenu.Item onSelect={() => sidebar.toggle()}>
 						<PanelLeft />
 						Toggle sidebar

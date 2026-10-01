@@ -12,7 +12,6 @@
 
 	let {
 		articles = [],
-		title = 'All stories',
 		href,
 		tagHref,
 		emptyTitle = 'No articles yet',
@@ -20,7 +19,6 @@
 		onSelect
 	}: {
 		articles: ArticleRow[];
-		title?: string;
 		href?: (id: number) => string;
 		/**
 		 * Builds the href for a topic. Defaults to scoping the list to that tag
@@ -108,18 +106,6 @@
 		if (date) parts.push(date);
 		return parts.join(' · ');
 	}
-
-	const editionDate = new Date().toLocaleDateString(undefined, {
-		weekday: 'long',
-		month: 'long',
-		day: 'numeric',
-		year: 'numeric'
-	});
-	const unreadCount = $derived(articles.filter((a) => !a.isRead).length);
-	const topicCount = $derived(new Set(articles.flatMap((a) => a.tags.map((t) => t.id))).size);
-	const editionLine = $derived(
-		`${articles.length} stories · ${unreadCount} unread${topicCount > 0 ? ` · ${topicCount} ${topicCount === 1 ? 'topic' : 'topics'}` : ''}`
-	);
 </script>
 
 {#snippet kicker(a: ArticleRow)}
@@ -186,20 +172,8 @@
 {:else}
 	{@const lead = sections.lead}
 	<div class="min-h-0 flex-1 overflow-y-auto">
-		<div class="mx-auto w-full max-w-7xl px-4 pb-8 sm:px-5">
-			<div class="flex flex-col gap-1 py-4">
-				<p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-					{editionDate}
-				</p>
-				<h1 class="text-2xl font-bold tracking-tight text-balance text-foreground sm:text-3xl">
-					{title}
-				</h1>
-				<p class="text-xs text-muted-foreground">
-					{editionLine}
-				</p>
-			</div>
-			<Separator />
-			<div class="grid gap-3 py-4 lg:grid-cols-3">
+		<div class="mx-auto w-full max-w-7xl px-4 pt-6 pb-8 sm:px-5">
+			<div class="grid gap-3 lg:grid-cols-3">
 				<a
 					href={articleHref(lead.id)}
 					onclick={() => onSelect?.(lead.id)}

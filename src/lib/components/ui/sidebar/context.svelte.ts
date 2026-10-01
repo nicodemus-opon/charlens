@@ -1,6 +1,10 @@
 import { getContext, setContext } from 'svelte';
 import { IsMobile } from '$lib/hooks/is-mobile.svelte.js';
-import { SIDEBAR_KEYBOARD_SHORTCUT } from './constants.js';
+import {
+	SIDEBAR_KEYBOARD_SHORTCUT,
+	SIDEBAR_WIDTH,
+	SIDEBAR_WIDTH_STORAGE_KEY
+} from './constants.js';
 
 type Getter<T> = () => T;
 
@@ -27,6 +31,10 @@ class SidebarState {
 	setOpen: SidebarStateProps['setOpen'];
 	#isMobile: IsMobile;
 	state = $derived.by(() => (this.open ? 'expanded' : 'collapsed'));
+	/** Draggable desktop width (`--sidebar-width`). Persisted per browser. */
+	width = $state(SIDEBAR_WIDTH);
+	/** True while the user drags the rail — disables the width transition. */
+	resizing = $state(false);
 
 	constructor(props: SidebarStateProps) {
 		this.setOpen = props.setOpen;
@@ -54,6 +62,24 @@ class SidebarState {
 
 	toggle = () => {
 		return this.#isMobile.current ? (this.openMobile = !this.openMobile) : this.setOpen(!this.open);
+	};
+
+	setWidth = (value: string) => {
+		this.width = value;
+		try {
+			localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, value);
+		} catch {
+			// Storage unavailable (private mode, blocked) — keep in-memory only.
+		}
+	};
+
+	restoreWidth = () => {
+		try {
+			const stored = localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+			if (stored) this.width = stored;
+		} catch {
+			// Storage unavailable — keep the default.
+		}
 	};
 }
 

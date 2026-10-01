@@ -28,6 +28,7 @@
 	import { GENERAL_COLLECTION, type CollectionRow } from '$lib/collections';
 	import { feedDisplayIcon } from '$lib/feed-icon';
 	import { mobileActions } from '$lib/mobile-actions.svelte.js';
+	import { settingsStore } from '$lib/settings.svelte.js';
 	import AddFeedDialog from './add-feed-dialog.svelte';
 	import CollectionDialog from './collection-dialog.svelte';
 	import CommandPalette from './command-palette.svelte';
@@ -99,6 +100,9 @@
 	const activeFeed = $derived($page.url.searchParams.get('feed'));
 	const activeCollection = $derived($page.url.searchParams.get('collection'));
 	const activeView = $derived($page.url.searchParams.get('view'));
+	// Feed scopes live on `/` — while on `/settings` (or any other route)
+	// no feed item is active, otherwise Today highlights incorrectly.
+	const onHome = $derived($page.url.pathname === '/');
 
 	const manualCollections = $derived(collections.filter((c) => c.kind !== 'smart'));
 	const smartViews = $derived(collections.filter((c) => c.kind === 'smart'));
@@ -139,6 +143,26 @@
 	/** Collection groups start open; the chevron rotates and the feed list collapses on toggle. */
 	let collapsedCollections = $state<Record<string, boolean>>({});
 
+	// Account display settings (live store after layout init; layout payload
+	// seeds the same keys for SSR so the first paint already matches).
+	const showUnreadBadges = $derived(
+		settingsStore.ready ? Boolean(settingsStore.get('showUnreadBadges')) : true
+	);
+	const showFeedIcons = $derived(
+		settingsStore.ready ? Boolean(settingsStore.get('showFeedIcons')) : true
+	);
+	const confirmBeforeRemove = $derived(
+		settingsStore.ready ? Boolean(settingsStore.get('confirmBeforeRemove')) : true
+	);
+
+	// New devices start folded when the user opts in (Settings → sidebar).
+	$effect(() => {
+		if (!settingsStore.ready) return;
+		if (Boolean(settingsStore.get('collapseCollectionsDefault'))) {
+			for (const g of collectionGroups()) collapsedCollections[g.name] ??= true;
+		}
+	});
+
 	function href(params: Record<string, string | null>) {
 		const url = new URL($page.url);
 		// Sidebar navigation always moves to a single scope (feed, collection,
@@ -155,7 +179,10 @@
 			else url.searchParams.set(k, v);
 		}
 		url.searchParams.delete('article');
-		return `${url.pathname}?${url.searchParams.toString()}`;
+		// Scopes live on `/` — never keep the current pathname, otherwise
+		// clicking from `/settings` stays on `/settings?filter=…` and the
+		// view never changes.
+		return `/?${url.searchParams.toString()}`;
 	}
 
 	/**
@@ -179,7 +206,7 @@
 		url.searchParams.delete('article');
 		url.searchParams.delete('deep');
 		url.searchParams.set('shuffle', String(Date.now()));
-		goto(`${url.pathname}?${url.searchParams.toString()}`, { keepFocus: true });
+		goto(`/?${url.searchParams.toString()}`, { keepFocus: true });
 	}
 
 	/** Menu items cannot post forms, so the footer menu submits this hidden form. */
@@ -219,7 +246,7 @@
 	}
 
 	async function requestRemoveFeed(f: FeedRow) {
-		if (!confirm(`Remove "${f.title}" and its articles?`)) return;
+		if (confirmBeforeRemove && !confirm(`Remove "${f.title}" and its articles?`)) return;
 		pendingRemoveId = f.id;
 		await tick();
 		removeForm?.requestSubmit();
@@ -249,7 +276,10 @@
 	}
 
 	async function requestDeleteCollection(g: CollectionGroup) {
-		if (!confirm(`Delete collection "${g.name}"? Its feeds move back to ${GENERAL_COLLECTION}.`))
+		if (
+			confirmBeforeRemove &&
+			!confirm(`Delete collection "${g.name}"? Its feeds move back to ${GENERAL_COLLECTION}.`)
+		)
 			return;
 		pendingDeleteCollectionId = g.id;
 		await tick();
@@ -268,10 +298,10 @@
 {/snippet}
 
 {#snippet feedItem(f: FeedRow)}
-	{@const icon = feedDisplayIcon(f)}
+	{@const icon = showFeedIcons ? feedDisplayIcon(f) : null}
 	<Sidebar.MenuItem>
 		<Sidebar.MenuButton
-			isActive={activeFeed === String(f.id)}
+			isActive={onHome && activeFeed === String(f.id)}
 			tooltipContent={f.title}
 			class="min-w-0 flex-1"
 		>
@@ -354,7 +384,7 @@
 				</DropdownMenu.Item>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
-		{#if f.unread > 0}
+		{#if showUnreadBadges && f.unread > 0}
 			<Sidebar.MenuBadge
 				class="group-focus-within/menu-item:opacity-0 group-hover/menu-item:opacity-0"
 				>{f.unread}</Sidebar.MenuBadge
@@ -462,7 +492,7 @@
 				<Sidebar.Menu>
 					<Sidebar.MenuItem>
 						<Sidebar.MenuButton
-							isActive={filter === 'today' && !activeFeed && !activeView}
+							isActive={onHome && filter === 'today' && !activeFeed && !activeView}
 							tooltipContent="Today"
 						>
 							{#snippet child({ props })}
@@ -478,7 +508,7 @@
 					</Sidebar.MenuItem>
 					<Sidebar.MenuItem>
 						<Sidebar.MenuButton
-							isActive={filter === 'saved' && !activeView}
+							isActive={onHome && filter === 'saved' && !activeView}
 							tooltipContent="Read later"
 						>
 							{#snippet child({ props })}
@@ -494,7 +524,7 @@
 					</Sidebar.MenuItem>
 					<Sidebar.MenuItem>
 						<Sidebar.MenuButton
-							isActive={filter === 'recommended' && !activeFeed && !activeView}
+							isActive={onHome && filter === 'recommended' && !activeFeed && !activeView}
 							tooltipContent="Recommended"
 						>
 							{#snippet child({ props })}
@@ -541,7 +571,7 @@
 							{#each smartViews as v (v.id)}
 								<Sidebar.MenuItem>
 									<Sidebar.MenuButton
-										isActive={activeView === String(v.id)}
+										isActive={onHome && activeView === String(v.id)}
 										tooltipContent={v.name}
 									>
 										{#snippet child({ props })}
@@ -556,7 +586,7 @@
 											>
 												<Sparkles />
 												<span
-													class={v.unread > 0
+													class={showUnreadBadges && v.unread > 0
 														? 'mr-6 min-w-0 flex-1 truncate'
 														: 'min-w-0 flex-1 truncate'}
 												>
@@ -565,7 +595,7 @@
 											</a>
 										{/snippet}
 									</Sidebar.MenuButton>
-									{#if v.unread > 0}
+									{#if showUnreadBadges && v.unread > 0}
 										<Sidebar.MenuBadge>{v.unread}</Sidebar.MenuBadge>
 									{/if}
 								</Sidebar.MenuItem>
@@ -620,7 +650,7 @@
 								{#if group.id != null}
 									<div class="group/menu-item relative flex min-w-0 flex-1 items-center">
 										<Sidebar.MenuButton
-											isActive={activeCollection === String(group.id)}
+											isActive={onHome && activeCollection === String(group.id)}
 											tooltipContent={group.name}
 											class="min-w-0 flex-1"
 										>
@@ -677,6 +707,7 @@
 			onRefreshFeeds={refreshFeeds}
 		/>
 	</Sidebar.Footer>
+	<Sidebar.Rail />
 </Sidebar.Root>
 
 <form method="POST" action="/?/refresh" use:enhance class="hidden" bind:this={refreshForm}></form>

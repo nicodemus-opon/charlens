@@ -22,6 +22,27 @@ export interface ArticleRow {
 /** How the article list is rendered. `compact` is the dense, one-line table-style view, `magazine` is the news front-page view. */
 export type ArticleView = 'list' | 'grid' | 'compact' | 'magazine';
 
+/** Client-side article ordering offered by the sort dropdown. */
+export type ArticleSort = 'newest' | 'oldest' | 'title';
+
+function sortTime(value: ArticleRow['publishedAt']): number {
+	if (!value) return 0;
+	return value instanceof Date ? value.getTime() : new Date(value).getTime();
+}
+
+/** Sorts articles for display without mutating the input (unit-tested). */
+export function sortArticles<T extends ArticleRow>(articles: T[], sort: ArticleSort): T[] {
+	const copy = [...articles];
+	if (sort === 'oldest') {
+		copy.sort((a, b) => sortTime(a.publishedAt) - sortTime(b.publishedAt));
+	} else if (sort === 'title') {
+		copy.sort((a, b) => a.title.localeCompare(b.title));
+	} else {
+		copy.sort((a, b) => sortTime(b.publishedAt) - sortTime(a.publishedAt));
+	}
+	return copy;
+}
+
 /**
  * Focus-mode decision helper (unit-tested).
  *

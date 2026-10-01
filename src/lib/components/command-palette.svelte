@@ -24,6 +24,7 @@
 		Plus,
 		RefreshCw,
 		Rss,
+		Settings,
 		Sparkles
 	} from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
@@ -169,6 +170,13 @@
 		keywords: ['archive'],
 		href: '/?filter=all'
 	};
+	const settingsRow: PaletteItem = {
+		id: 'go-settings',
+		label: 'Settings',
+		hint: 'Appearance, reading, privacy',
+		keywords: ['preferences', 'options', 'theme'],
+		href: '/settings'
+	};
 	const addAction: PaletteAction = {
 		id: 'action-add',
 		label: 'Add content',
@@ -306,6 +314,9 @@
 {#snippet compassIcon()}
 	<Compass />
 {/snippet}
+{#snippet settingsIcon()}
+	<Settings />
+{/snippet}
 
 <Command.Dialog
 	bind:open
@@ -333,7 +344,7 @@
 			<Command.Separator />
 		{/if}
 
-		{#if visible(todayRow) || visible(savedRow) || visible(recommendedRow) || visible(allRow)}
+		{#if visible(todayRow) || visible(savedRow) || visible(recommendedRow) || visible(allRow) || visible(settingsRow)}
 			<Command.Group heading="Go to">
 				{#if visible(todayRow)}
 					{@render row(todayRow, todayIcon)}
@@ -346,6 +357,9 @@
 				{/if}
 				{#if visible(allRow)}
 					{@render row(allRow, articleIcon)}
+				{/if}
+				{#if visible(settingsRow)}
+					{@render row(settingsRow, settingsIcon)}
 				{/if}
 			</Command.Group>
 			<Command.Separator />

@@ -36,5 +36,8 @@ export function buildScopeHref(current: URL, params: Record<string, string | nul
 		else url.searchParams.set(k, v);
 	}
 	url.searchParams.delete('article');
-	return `${url.pathname}?${url.searchParams.toString()}`;
+	// Feed scopes live on `/` — never preserve the current pathname, otherwise
+	// clicking Today/All/etc from `/settings` lands on `/settings?filter=…`
+	// and the view never changes.
+	return `/?${url.searchParams.toString()}`;
 }

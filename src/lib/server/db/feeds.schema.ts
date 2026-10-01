@@ -166,6 +166,26 @@ export const userViewPref = pgTable(
 	]
 );
 
+/** Per-user app settings (key-value): theme, reading defaults, sidebar, privacy. */
+export const userSetting = pgTable(
+	'user_setting',
+	{
+		id: serial('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => user.id, { onDelete: 'cascade' }),
+		/** Setting key from SETTING_KEYS (see $lib/settings). Max 64 chars. */
+		key: text('key').notNull(),
+		/** JSON-encoded SettingValue (bool/string). */
+		value: jsonb('value').notNull(),
+		updatedAt: timestamp('updated_at').notNull().defaultNow()
+	},
+	(t) => [
+		uniqueIndex('user_setting_user_key_idx').on(t.userId, t.key),
+		index('user_setting_user_idx').on(t.userId)
+	]
+);
+
 /** Append-only behavioral log feeding Recommended affinities + future models. */
 export const articleEvent = pgTable(
 	'article_event',
@@ -269,6 +289,8 @@ export type ArticleEvent = typeof articleEvent.$inferSelect;
 export type NewArticleEvent = typeof articleEvent.$inferInsert;
 export type UserViewPref = typeof userViewPref.$inferSelect;
 export type NewUserViewPref = typeof userViewPref.$inferInsert;
+export type UserSetting = typeof userSetting.$inferSelect;
+export type NewUserSetting = typeof userSetting.$inferInsert;
 export type ArticleEmbedding = typeof articleEmbedding.$inferSelect;
 export type UserFeedback = typeof userFeedback.$inferSelect;
 export type NewUserFeedback = typeof userFeedback.$inferInsert;

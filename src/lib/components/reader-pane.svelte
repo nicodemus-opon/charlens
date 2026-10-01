@@ -46,7 +46,12 @@
 		tagHref,
 		onTagClick,
 		onBack,
-		onFocusChange
+		onFocusChange,
+		readerFontSize = 'comfortable',
+		readerWidth = 'narrow',
+		openLinksNewTab = true,
+		autoLoadFullText = false,
+		telemetryEnabled = true
 	}: {
 		article: FullArticle | null;
 		/** True when the list is hidden (focus/reader-only view). */
@@ -59,7 +64,14 @@
 		focusMode?: boolean;
 		onBack?: () => void;
 		onFocusChange?: (enabled: boolean) => void;
+		readerFontSize?: 'compact' | 'comfortable' | 'large';
+		readerWidth?: 'narrow' | 'wide';
+		openLinksNewTab?: boolean;
+		autoLoadFullText?: boolean;
+		telemetryEnabled?: boolean;
 	} = $props();
+
+	const linkTarget = $derived(openLinksNewTab ? '_blank' : undefined);
 
 	function prettyDate(d: Date | string | null) {
 		if (!d) return '';
@@ -122,7 +134,7 @@
 	}
 
 	function sendEvent(id: number, kind: string, value = 0) {
-		if (!browser) return;
+		if (!browser || !telemetryEnabled) return;
 		fetch(`/api/articles/${id}/event`, {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -133,9 +145,10 @@
 
 	// Dwell + scroll-depth beacons feeding the Recommended feed. Runs only in
 	// the browser; timers/listeners are torn down when the article changes.
+	// Disabled entirely when the user opts out in Settings → privacy.
 	$effect(() => {
 		const id = article?.id;
-		if (!id || !browser) return;
+		if (!id || !browser || !telemetryEnabled) return;
 		let maxPct = 0;
 		let finishSent = false;
 		const onScroll = () => {
@@ -185,6 +198,17 @@
 			fulltextBusy = false;
 		}
 	}
+
+	// Auto-load full text once per article when the user opts in (Settings
+	// → auto-load). Guarded by showFulltext so full articles never refetch.
+	let autoLoadedFor: number | null = $state(null);
+	$effect(() => {
+		const id = article?.id;
+		if (!id || !autoLoadFullText || !showFulltext || fulltextBusy) return;
+		if (autoLoadedFor === id) return;
+		autoLoadedFor = id;
+		void loadFulltext();
+	});
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col bg-background">
@@ -261,7 +285,8 @@
 					variant="ghost"
 					size="icon-sm"
 					href={article.link}
-					target="_blank"
+					target={linkTarget}
+					rel="noopener"
 					aria-label="Open original"
 				>
 					<ExternalLink />
@@ -288,7 +313,9 @@
 					in:fly={{ y: reduceMotion ? 0 : 8, duration: reduceMotion ? 0 : 180, easing: cubicOut }}
 				>
 					<article
-						class="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-6 pb-12 sm:px-8 sm:pt-10 md:px-10"
+						class={readerWidth === 'wide'
+							? 'mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-12 sm:px-8 sm:pt-10 md:px-10'
+							: 'mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-6 pb-12 sm:px-8 sm:pt-10 md:px-10'}
 					>
 						<h1 class="text-2xl font-bold text-balance break-words text-foreground sm:text-3xl">
 							{article.title}
@@ -329,12 +356,24 @@
 							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 							<div
 								use:hideBrokenImages
-								class="prose max-w-none text-base leading-relaxed text-foreground prose-neutral sm:text-sm dark:prose-invert"
+								class={readerFontSize === 'compact'
+									? 'prose max-w-none text-sm leading-relaxed text-foreground prose-neutral dark:prose-invert'
+									: readerFontSize === 'large'
+										? 'prose prose-lg max-w-none leading-loose text-foreground prose-neutral dark:prose-invert'
+										: 'prose max-w-none text-base leading-relaxed text-foreground prose-neutral sm:text-sm dark:prose-invert'}
 							>
 								{@html article.contentHtml}
 							</div>
 						{:else if article.excerpt}
-							<p class="text-base leading-relaxed text-foreground">{article.excerpt}</p>
+							<p
+								class={readerFontSize === 'compact'
+									? 'font-serif text-sm leading-relaxed text-foreground'
+									: readerFontSize === 'large'
+										? 'font-serif text-lg leading-loose text-foreground'
+										: 'font-serif text-base leading-relaxed text-foreground'}
+							>
+								{article.excerpt}
+							</p>
 						{/if}
 						{#if showFulltext}
 							<div class="flex flex-col gap-2">
@@ -353,7 +392,7 @@
 							</div>
 						{/if}
 						<div class="hidden pt-4 sm:block">
-							<Button variant="outline" href={article.link} target="_blank">
+							<Button variant="outline" href={article.link} target={linkTarget} rel="noopener">
 								<ExternalLink /> Read original
 							</Button>
 						</div>
@@ -396,7 +435,7 @@
 			<Button
 				variant="ghost"
 				href={article.link}
-				target="_blank"
+				target={linkTarget}
 				rel="noopener"
 				aria-label="Open original"
 				class="min-h-11 min-w-0 flex-1"

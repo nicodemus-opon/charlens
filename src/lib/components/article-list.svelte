@@ -17,6 +17,10 @@
 		href,
 		emptyTitle = 'No articles yet',
 		emptyDescription = 'Add a feed or hit refresh to pull the latest stories.',
+		showImages = true,
+		showExcerpts = true,
+		showReadMinutes = true,
+		density = 'comfortable',
 		onSelect
 	}: {
 		articles: ArticleRow[];
@@ -30,6 +34,10 @@
 		href?: (id: number) => string;
 		emptyTitle?: string;
 		emptyDescription?: string;
+		showImages?: boolean;
+		showExcerpts?: boolean;
+		showReadMinutes?: boolean;
+		density?: 'comfortable' | 'compact';
 		onSelect?: (id: number) => void;
 	} = $props();
 
@@ -82,12 +90,14 @@
 				)}
 			>
 				<Card.Root class="h-full min-w-0">
-					<ArticleImage seed={a} src={a.imageUrl} alt="" class="aspect-video w-full" />
+					{#if showImages}
+						<ArticleImage seed={a} src={a.imageUrl} alt="" class="aspect-video w-full" />
+					{/if}
 					<Card.Content class="flex min-w-0 flex-1 flex-col">
 						<div class="flex min-w-0 flex-col gap-1">
 							<div class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
 								<span class="truncate font-medium">{a.feedTitle}</span>
-								{#if a.readMinutes}
+								{#if showReadMinutes && a.readMinutes}
 									<span class="flex shrink-0 items-center gap-1">
 										<Clock class="size-3" />
 										{a.readMinutes} min
@@ -114,7 +124,9 @@
 			{@const isSelected = selectedId === String(a.id)}
 			<div
 				class={cn(
-					'flex items-center gap-2 border-b border-border px-4 py-3 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-1.5',
+					density === 'compact'
+						? 'flex items-center gap-2 border-b border-border px-4 py-1.5 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-1'
+						: 'flex items-center gap-2 border-b border-border px-4 py-3 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-1.5',
 					isSelected && 'bg-accent'
 				)}
 			>
@@ -145,12 +157,12 @@
 						<span class="min-w-0 flex-1 truncate font-semibold text-foreground sm:flex-none"
 							>{a.title}</span
 						>
-						{#if a.excerpt}
+						{#if showExcerpts && a.excerpt}
 							<span class="hidden truncate text-muted-foreground sm:inline">{a.excerpt}</span>
 						{/if}
 					</span>
 					<span class="shrink-0 text-muted-foreground">
-						{a.readMinutes ? `${a.readMinutes}min` : dateLabel(a.publishedAt)}
+						{showReadMinutes && a.readMinutes ? `${a.readMinutes}min` : dateLabel(a.publishedAt)}
 					</span>
 				</a>
 			</div>
@@ -165,22 +177,26 @@
 				onclick={() => onSelect?.(a.id)}
 				aria-current={isSelected ? 'true' : undefined}
 				class={cn(
-					'flex w-full items-start gap-4 border-b border-border px-4 py-3 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none active:bg-accent sm:px-5 sm:py-4',
+					density === 'compact'
+						? 'flex w-full items-start gap-4 border-b border-border px-4 py-2 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none active:bg-accent sm:px-5 sm:py-2'
+						: 'flex w-full items-start gap-4 border-b border-border px-4 py-3 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none active:bg-accent sm:px-5 sm:py-4',
 					isSelected && 'bg-accent'
 				)}
 			>
-				<ArticleImage
-					seed={a}
-					src={a.imageUrl}
-					alt=""
-					class="size-14 shrink-0 rounded-lg @sm:size-16 @md:size-20 @lg:size-24"
-				/>
+				{#if showImages}
+					<ArticleImage
+						seed={a}
+						src={a.imageUrl}
+						alt=""
+						class="size-14 shrink-0 rounded-lg @sm:size-16 @md:size-20 @lg:size-24"
+					/>
+				{/if}
 				<div class="flex min-w-0 flex-1 flex-col gap-1.5">
 					<div class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
 						<span class="truncate">{a.feedTitle}</span>
 						<span aria-hidden="true">·</span>
 						<span class="shrink-0">{dateLabel(a.publishedAt)}</span>
-						{#if a.readMinutes}
+						{#if showReadMinutes && a.readMinutes}
 							<span class="flex shrink-0 items-center gap-1">
 								<Clock class="size-3" />
 								{a.readMinutes} min
@@ -188,7 +204,7 @@
 						{/if}
 					</div>
 					<p class="line-clamp-2 text-sm font-medium text-foreground">{a.title}</p>
-					{#if a.excerpt}
+					{#if showExcerpts && a.excerpt}
 						<p class="line-clamp-2 text-xs text-muted-foreground">{a.excerpt}</p>
 					{/if}
 					{#if !a.isRead || a.isSaved || a.tags.length > 0}
