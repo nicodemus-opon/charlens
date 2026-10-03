@@ -17,12 +17,14 @@ import {
 	buildAffinityMaps,
 	burstBoosts,
 	canonicalTitleKey,
+	cosineSimilarity,
 	deterministicExploreBoost,
 	DEEP_SHUFFLE_EXPLORATION_MULTIPLIER,
 	idfWeight,
 	injectExplorationSlots,
 	interactionWeight,
 	keywordMatchBoost,
+	normalizedFeedScores,
 	rankWithMMR,
 	scoreCandidate,
 	SESSION_HALF_LIFE_MS,
@@ -585,19 +587,24 @@ function smartRulesConditions(rules: SmartRules, userId?: string) {
 	return rules.match === 'any' ? or(...preds)! : and(...preds)!;
 }
 
-export async function getArticles(
-	userId: string,
-	opts: {
-		feedId?: number;
-		collectionId?: number;
-		tagId?: number;
-		smart?: SmartRules;
-		filter?: ArticleFilter;
-		query?: string;
-		limit?: number;
-	}
-) {
-	const { feedId, collectionId, tagId, smart, filter = 'all', query, limit = 100 } = opts;
+export interface ArticleScope {
+	feedId?: number;
+	collectionId?: number;
+	tagId?: number;
+	smart?: SmartRules;
+	filter?: ArticleFilter;
+	query?: string;
+	limit?: number;
+}
+
+/**
+ * Shared scope conditions for the article list and bulk triage: every
+ * condition the list applies (subscription/feed ownership, feed/collection/
+ * tag/smart predicates, today/saved windows, keyword query) so "mark all as
+ * read" marks exactly what the view shows. Ordering/limit stay in getArticles.
+ */
+function buildArticleScopeConds(userId: string, opts: Omit<ArticleScope, 'limit'>) {
+	const { feedId, collectionId, tagId, smart, filter = 'all', query } = opts;
 	const conds = [eq(subscription.userId, userId), eq(feed.userId, userId)];
 	if (feedId) conds.push(eq(article.feedId, feedId));
 	if (collectionId) conds.push(eq(subscription.collectionId, collectionId));
@@ -624,6 +631,12 @@ export async function getArticles(
 		const q = `%${query.trim()}%`;
 		conds.push(or(ilike(article.title, q), ilike(article.excerpt, q), ilike(article.author, q))!);
 	}
+	return conds;
+}
+
+export async function getArticles(userId: string, opts: ArticleScope) {
+	const { limit = 100 } = opts;
+	const conds = buildArticleScopeConds(userId, opts);
 	const rows = await db
 		.select({
 			id: article.id,
@@ -744,6 +757,85 @@ export async function markRead(userId: string, articleId: number, isRead = true)
 	await upsertState(userId, articleId, { isRead });
 }
 
+export async function toggleRead(userId: string, articleId: number) {
+	if (!(await canAccessArticle(userId, articleId))) return false;
+	const rows = await db
+		.select({ isRead: userArticleState.isRead })
+		.from(userArticleState)
+		.where(and(eq(userArticleState.userId, userId), eq(userArticleState.articleId, articleId)))
+		.limit(1);
+	const next = !(rows[0]?.isRead ?? false);
+	await upsertState(userId, articleId, { isRead: next });
+	return next;
+}
+
+/**
+ * Bulk triage: mark every article in a list scope as read in one statement.
+ * Reuses the list's scope conditions (ownership included) so it marks exactly
+ * what the view shows. Mirrors the list page size — the visible window, not
+ * the unbounded scope. No behavioral events: bulk marks must not spam the
+ * telemetry log or distort Recommended affinities.
+ */
+export async function markScopeRead(
+	userId: string,
+	scope: Omit<ArticleScope, 'limit'> & { limit?: number }
+): Promise<{ marked: number }> {
+	const { limit = 100, ...condsOpts } = scope;
+	// Recommended is a personalized ranking, not a stable chronological set:
+	// resolve the same ranking the list shows, then mark its visible window
+	// (unread only, in ranked order) so bulk-mark matches the rendered list.
+	if (
+		condsOpts.filter === 'recommended' &&
+		!condsOpts.collectionId &&
+		!condsOpts.tagId &&
+		!condsOpts.smart
+	) {
+		const ranked = await getRecommendedArticles(userId, {
+			feedId: condsOpts.feedId,
+			query: condsOpts.query,
+			limit
+		});
+		const ids = ranked.filter((r) => !r.isRead).map((r) => ({ id: r.id }));
+		if (ids.length === 0) return { marked: 0 };
+		const now = new Date();
+		await db
+			.insert(userArticleState)
+			.values(ids.map((r) => ({ userId, articleId: r.id, isRead: true, updatedAt: now })))
+			.onConflictDoUpdate({
+				target: [userArticleState.userId, userArticleState.articleId],
+				set: { isRead: true, updatedAt: now }
+			});
+		return { marked: ids.length };
+	}
+	// A smart view's other predicates already filter by recency/keywords, so
+	// the list resolves them with filter='all' (see +page.server.ts load) —
+	// do the same here so bulk-mark matches the rendered list.
+	const filter = condsOpts.filter === 'recommended' ? 'all' : (condsOpts.filter ?? 'all');
+	const conds = buildArticleScopeConds(userId, { ...condsOpts, filter });
+	const ids = await db
+		.select({ id: article.id })
+		.from(article)
+		.innerJoin(feed, eq(feed.id, article.feedId))
+		.innerJoin(subscription, and(eq(subscription.feedId, feed.id), eq(subscription.userId, userId)))
+		.leftJoin(
+			userArticleState,
+			and(eq(userArticleState.articleId, article.id), eq(userArticleState.userId, userId))
+		)
+		.where(and(...conds, sql`coalesce(${userArticleState.isRead}, false) = false`))
+		.orderBy(desc(sql`coalesce(${article.publishedAt}, ${article.createdAt})`), desc(article.id))
+		.limit(limit);
+	if (ids.length === 0) return { marked: 0 };
+	const now = new Date();
+	await db
+		.insert(userArticleState)
+		.values(ids.map((r) => ({ userId, articleId: r.id, isRead: true, updatedAt: now })))
+		.onConflictDoUpdate({
+			target: [userArticleState.userId, userArticleState.articleId],
+			set: { isRead: true, updatedAt: now }
+		});
+	return { marked: ids.length };
+}
+
 export async function toggleSaved(userId: string, articleId: number) {
 	if (!(await canAccessArticle(userId, articleId))) return;
 	const rows = await db
@@ -752,6 +844,9 @@ export async function toggleSaved(userId: string, articleId: number) {
 		.where(and(eq(userArticleState.userId, userId), eq(userArticleState.articleId, articleId)))
 		.limit(1);
 	await upsertState(userId, articleId, { isSaved: !(rows[0]?.isSaved ?? false) });
+	// A save is explicit taste evidence — refresh the semantic model so the
+	// next Recommended load reflects it (throttled, never blocks).
+	scheduleInterestRefresh(userId);
 }
 
 // ---------------------------------------------------------------------------
@@ -818,9 +913,17 @@ export async function logArticleEvent(
 			});
 	}
 	// Open/finish carry the strongest interest signal — refresh the semantic
-	// model in the background so the next Recommended load re-ranks. Dwell
-	// and scroll beacons are covered by the same throttle via open/finish.
-	if (kind === 'open' || kind === 'finish') scheduleInterestRefresh(userId);
+	// model in the background so the next Recommended load re-ranks. Deep
+	// dwell (30s+) and near-complete scroll (75%+) also refresh via the same
+	// 60s throttle; cheap beacons below that stay write-only. Share/save are
+	// strong explicit signals and refresh too.
+	if (kind === 'open' || kind === 'finish' || kind === 'share' || kind === 'save') {
+		scheduleInterestRefresh(userId);
+	} else if (kind === 'dwell' && safeValue >= 30_000) {
+		scheduleInterestRefresh(userId);
+	} else if (kind === 'scroll' && safeValue >= 75) {
+		scheduleInterestRefresh(userId);
+	}
 	if (kind === 'dismiss' || kind === 'mute_feed' || kind === 'mute_topic') {
 		await recordFeedback(userId, articleId, kind);
 		scheduleInterestRefresh(userId);
@@ -1174,17 +1277,20 @@ export async function getRecommendedArticles(
 			affinities != null
 				? [...affinities.feedScores.entries()]
 						.sort((a, b) => b[1] - a[1])
-						.slice(0, 5)
+						.slice(0, 8)
 						.map(([fid]) => fid)
 				: [];
 		const affinityConds: ReturnType<typeof eq>[] =
 			topFeeds.length > 0 ? [inArray(article.feedId, topFeeds)] : [];
 		const exploreConds: ReturnType<typeof eq>[] =
 			topFeeds.length > 0 ? [sql`${article.feedId} NOT IN (${sql.join(topFeeds, sql`, `)})`] : [];
+		// Depth uses offset 0 (not 120): a favorite feed with few items would
+		// otherwise return nothing past the offset, starving low-volume
+		// favorites. Overlap with `recent` is removed by the dedupe below.
 		const [recent, depth, explore] = await Promise.all([
-			rowQuery([], 0, 350),
-			topFeeds.length > 0 ? rowQuery(affinityConds, 120, 120) : Promise.resolve([]),
-			rowQuery(exploreConds, 0, 80)
+			rowQuery([], 0, 320),
+			topFeeds.length > 0 ? rowQuery(affinityConds, 0, 150) : Promise.resolve([]),
+			rowQuery(exploreConds, 0, 100)
 		]);
 		const seen = new Set<number>();
 		rows = [];
@@ -1199,15 +1305,17 @@ export async function getRecommendedArticles(
 	if (feedback.dismissed.size > 0) {
 		rows = rows.filter((r) => !feedback.dismissed.has(r.id));
 	}
-	// Cold-start users get chronological order — unless a semantic query
-	// vector exists, in which case search ranking still works.
-	if (!isSearch && !(affinities?.hasSignals ?? false) && !queryVec) return rows.slice(0, limit);
+	// Cold-start users have no taste affinities, but scoring still ranks by
+	// freshness + quality + trending + unread instead of raw recency, so the
+	// first screen is the best of the window rather than just the newest.
+	// (No early chronological return here — the scorer below degrades
+	// gracefully with empty affinity maps.)
 	const aff =
 		affinities ??
 		buildAffinityMaps({ feedCounts: new Map(), tagCounts: new Map(), authorCounts: new Map() });
 
 	const candidateIds = rows.map((r) => r.id);
-	const [tagMap, candidateStates, embeddingRows, interestRows] = await Promise.all([
+	const [tagMap, candidateStates, embeddingRows, interestRows, shortEngaged] = await Promise.all([
 		getTagsForArticles(userId, candidateIds),
 		candidateIds.length > 0
 			? db
@@ -1243,13 +1351,66 @@ export async function getRecommendedArticles(
 					.select({ embedding: userInterest.embedding })
 					.from(userInterest)
 					.where(eq(userInterest.userId, userId))
-					.limit(1)
+					.limit(1),
+		// Short-term ("reading right now") semantic target: the freshest
+		// positively-engaged embeddings. Small (12 rows) and skipped for search.
+		isSearch
+			? Promise.resolve([])
+			: db
+					.select({
+						embedding: articleEmbedding.embedding,
+						openCount: userArticleState.openCount,
+						isRead: userArticleState.isRead,
+						isSaved: userArticleState.isSaved,
+						finished: userArticleState.finished,
+						totalDwellMs: userArticleState.totalDwellMs,
+						maxScrollPct: userArticleState.maxScrollPct,
+						updatedAt: userArticleState.updatedAt
+					})
+					.from(userArticleState)
+					.innerJoin(article, eq(article.id, userArticleState.articleId))
+					.innerJoin(feed, and(eq(feed.id, article.feedId), eq(feed.userId, userId)))
+					.innerJoin(articleEmbedding, eq(articleEmbedding.articleId, article.id))
+					.where(eq(userArticleState.userId, userId))
+					.orderBy(desc(userArticleState.updatedAt))
+					.limit(12)
 	]);
 	// A search query vector takes priority over the interest model: "what
 	// I'm looking for right now" beats "what I generally read".
 	const semanticTarget = queryVec ?? interestRows[0]?.embedding ?? null;
 	const embeddingById = new Map(embeddingRows.map((e) => [e.articleId, e]));
 	const stateById = new Map(candidateStates.map((s) => [s.articleId, s]));
+	// Session centroid: engagement-weighted mean of the freshest positive
+	// interactions (48h half-life), normalized. Null when nothing recent.
+	const shortCentroid: number[] | null = (() => {
+		if (isSearch || shortEngaged.length === 0) return null;
+		const acc: number[] = [];
+		let dim = 0;
+		let totalW = 0;
+		for (const row of shortEngaged) {
+			const vec = parseStoredVector(row.embedding);
+			if (!vec || vec.length === 0) continue;
+			const w =
+				interactionWeight({
+					openCount: row.openCount,
+					isRead: row.isRead,
+					isSaved: row.isSaved,
+					finished: row.finished,
+					totalDwellMs: row.totalDwellMs,
+					maxScrollPct: row.maxScrollPct
+				}) * timeDecay(now - (row.updatedAt?.getTime() ?? now), SESSION_HALF_LIFE_MS);
+			if (!(w > 0.3)) continue;
+			if (dim === 0) dim = vec.length;
+			if (vec.length !== dim) continue;
+			if (acc.length === 0) acc.push(...vec.map((x) => x * w));
+			else for (let i = 0; i < dim; i++) acc[i] += vec[i] * w;
+			totalW += w;
+		}
+		if (totalW <= 0 || acc.length === 0) return null;
+		const mean = acc.map((x) => x / totalW);
+		const norm = Math.sqrt(mean.reduce((s, x) => s + x * x, 0));
+		return norm > 0 ? mean.map((x) => x / norm) : null;
+	})();
 
 	// Tag IDF over the candidate window: distinctive tags count more than
 	// ubiquitous ones. Stored topics/entities join the tag vocabulary so
@@ -1273,14 +1434,16 @@ export async function getRecommendedArticles(
 	const bursts = isSearch ? new Map<string, number>() : burstBoosts(docFreq);
 	const idfOf = (t: string) => tagIdf.get(t) ?? 1;
 
-	// Feed volume normalization: a feed with 40 recent items shouldn't
-	// auto-win over a quiet feed the user loves equally.
+	// Feed volume normalization (pure — never mutates the cached affinity
+	// maps): a feed with 40 recent items shouldn't auto-win over a quiet
+	// feed the user loves equally.
 	const feedVolume = new Map<number, number>();
 	for (const r of rows) feedVolume.set(r.feedId, (feedVolume.get(r.feedId) ?? 0) + 1);
-	for (const [fid, count] of feedVolume) {
-		const cur = aff.feedScores.get(fid);
-		if (cur != null && count > 1) aff.feedScores.set(fid, cur / Math.log2(1 + count));
-	}
+	const feedScores =
+		isSearch || feedVolume.size === 0
+			? aff.feedScores
+			: normalizedFeedScores(aff.feedScores, feedVolume);
+	const affScored: AffinityMaps = feedScores === aff.feedScores ? aff : { ...aff, feedScores };
 
 	const mode = isSearch ? 'search' : 'recommend';
 	const scored = rows.map((r) => {
@@ -1288,7 +1451,13 @@ export async function getRecommendedArticles(
 		const stored = embeddingById.get(r.id);
 		const rowTags = tagsPerRow.get(r.id) ?? [];
 		// Session affinity: short-term tag taste, IDF-weighted like long-term.
-		const sessionBoost = isSearch ? 0 : tagAffinity(rowTags, aff.shortTagScores, idfOf);
+		const sessionBoost = isSearch ? 0 : tagAffinity(rowTags, affScored.shortTagScores, idfOf);
+		// Short-term semantic: candidate vs "reading right now" centroid.
+		let sessionSemantic = 0;
+		if (!isSearch && shortCentroid) {
+			const vec = parseStoredVector(stored?.embedding);
+			if (vec) sessionSemantic = Math.max(0, cosineSimilarity(vec, shortCentroid));
+		}
 		let trendingBoost = 0;
 		for (const t of rowTags) {
 			const b = bursts.get(t) ?? 0;
@@ -1309,14 +1478,16 @@ export async function getRecommendedArticles(
 				scrollPct: st?.maxScrollPct ?? null,
 				hasImage: !!r.imageUrl,
 				excerptLength: r.excerpt?.length ?? 0,
-				titleLength: r.title?.length ?? 0
+				titleLength: r.title?.length ?? 0,
+				title: r.title
 			},
-			aff,
+			affScored,
 			{
 				now,
 				mode,
 				tagIdf,
 				sessionBoost,
+				sessionSemantic,
 				trendingBoost,
 				keywordBoost: isSearch ? keywordMatchBoost(trimmedQuery, r) : 0,
 				// An explicit shuffle seed elects a fresh exploration mix. The
@@ -1380,10 +1551,15 @@ export async function getRecommendedArticles(
 				12
 			);
 	const byId = new Map(rows.map((r) => [r.id, r]));
-	return orderedIds
-		.map((id) => byId.get(id))
-		.filter((r) => r != null)
-		.slice(0, limit);
+	const ranked = orderedIds.map((id) => byId.get(id)).filter((r) => r != null);
+	if (isSearch) return ranked.slice(0, limit);
+	// Unread-first backfill: kept (unread or explicitly saved) stories hold
+	// the top window in ranked order; opened stories backfill below instead
+	// of crowding out unseen items.
+	const kept: typeof ranked = [];
+	const opened: typeof ranked = [];
+	for (const r of ranked) (r.isSaved || !r.isRead ? kept : opened).push(r);
+	return [...kept, ...opened].slice(0, limit);
 }
 
 /** Env-gated eval logging for the Recommended feed (off by default). */
@@ -1809,7 +1985,20 @@ async function refreshStaleFeedsInner(userId: string, force = false) {
 					.where(eq(feed.id, f.id));
 			}
 		} catch (e) {
-			console.error(`refresh failed for ${f.url}`, e);
+			const msg = e instanceof Error ? e.message : String(e);
+			// Same backoff + quiet-log policy as the scheduler: stamp the
+			// attempt so dead feeds wait out the stale window, warn once for
+			// permanent failures, full error only for transient ones.
+			try {
+				await db.update(feed).set({ lastFetchedAt: new Date() }).where(eq(feed.id, f.id));
+			} catch {
+				// best-effort
+			}
+			if (isTransientFeedError(e)) {
+				console.error(`refresh failed for ${f.url}`, e);
+			} else {
+				console.warn(`refresh skipped for ${f.url}: ${msg}`);
+			}
 		}
 	}
 	return { added };

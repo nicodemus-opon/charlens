@@ -7,6 +7,7 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
+	import ArticleFeedbackMenu from '$lib/components/article-feedback-menu.svelte';
 	import { cn } from '$lib/utils.js';
 	import { Clock, Newspaper } from '@lucide/svelte';
 
@@ -16,6 +17,7 @@
 		tagHref,
 		emptyTitle = 'No articles yet',
 		emptyDescription = 'Add a feed or hit refresh to pull the latest stories.',
+		showFeedback = false,
 		onSelect
 	}: {
 		articles: ArticleRow[];
@@ -28,6 +30,8 @@
 		tagHref?: (tagId: number) => string;
 		emptyTitle?: string;
 		emptyDescription?: string;
+		/** True on Recommended: cards get a "less like this" overlay menu. */
+		showFeedback?: boolean;
 		onSelect?: (id: number) => void;
 	} = $props();
 
@@ -67,16 +71,26 @@
 	/** Static span classes only - lint-safe, every row sums to 12. */
 	function spanClass(span: number) {
 		if (span === 12) return 'col-span-12';
+		if (span === 8) return 'col-span-12 lg:col-span-8';
 		if (span === 6) return 'col-span-12 sm:col-span-6';
 		if (span === 4) return 'col-span-12 sm:col-span-6 lg:col-span-4';
 		return 'col-span-12 sm:col-span-6 lg:col-span-3';
 	}
 
+	/** Card treatment for a placed story: feature renders horizontally. */
+	function cardVariant(span: number, textOnly: boolean): 'feature' | 'standard' | 'text' {
+		if (textOnly) return 'text';
+		if (span === 8 || span === 12) return 'feature';
+		return 'standard';
+	}
+
 	/** Smart title size: image-led stories earn the bigger headline. */
-	function titleClass(a: ArticleRow, base: 'lead' | 'card') {
+	function titleClass(a: ArticleRow, base: 'lead' | 'feature' | 'card') {
 		const emphasis = getStoryEmphasis(a);
 		if (base === 'lead')
 			return 'line-clamp-2 text-xl font-bold tracking-tight text-balance text-foreground';
+		if (base === 'feature')
+			return 'line-clamp-2 text-lg font-bold tracking-tight text-balance text-foreground';
 		if (emphasis === 'visual' || emphasis === 'featured')
 			return 'line-clamp-2 text-base font-bold tracking-tight text-balance text-foreground';
 		if (emphasis === 'brief')
@@ -125,38 +139,73 @@
 	<ArticleImage seed={a} src={a.imageUrl} alt="" class={cn('w-full', sizes)} />
 {/snippet}
 
-{#snippet storyCard(a: ArticleRow, wide = false)}
+{#snippet cardMenu(a: ArticleRow)}
+	{#if showFeedback}
+		<ArticleFeedbackMenu articleId={a.id} isSaved={a.isSaved} isRead={a.isRead} overlay />
+	{/if}
+{/snippet}
+
+{#snippet storyCard(a: ArticleRow, variant: 'feature' | 'standard' | 'text' = 'standard')}
 	{@const isSelected = selectedId === String(a.id)}
-	<a
-		href={articleHref(a.id)}
-		onclick={() => onSelect?.(a.id)}
-		aria-current={isSelected ? 'true' : undefined}
-		class={cn(
-			'block h-full min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-			isSelected && 'ring-2 ring-ring'
-		)}
-	>
-		<Card.Root class={cn('h-full min-w-0 overflow-hidden', wide && 'sm:flex-row')}>
-			{#if wide}
-				<!-- Lone full-width story: horizontal card, not a giant hero. -->
-				<div class="w-full shrink-0 sm:w-1/2">
-					{@render thumb(a, 'aspect-video sm:h-full')}
-				</div>
-			{:else}
-				{@render thumb(a, 'aspect-video')}
-			{/if}
-			<Card.Content class="flex min-w-0 flex-1 flex-col">
-				<div class="flex min-w-0 flex-col gap-1">
-					{@render kicker(a)}
-					<h3 class={titleClass(a, 'card')}>{a.title}</h3>
-					{#if showExcerpt(a) && a.excerpt}
-						<p class="line-clamp-2 text-xs text-muted-foreground">{a.excerpt}</p>
-					{/if}
-					<p class="truncate text-xs text-muted-foreground">{byline(a)}</p>
-				</div>
-			</Card.Content>
-		</Card.Root>
-	</a>
+	<div class="group relative w-full min-w-0 flex-1">
+		<a
+			href={articleHref(a.id)}
+			onclick={() => onSelect?.(a.id)}
+			aria-current={isSelected ? 'true' : undefined}
+			class={cn(
+				'block h-full min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+				isSelected && 'ring-2 ring-ring'
+			)}
+		>
+			<Card.Root
+				class={cn(
+					'flex h-full min-w-0 flex-col overflow-hidden',
+					variant === 'feature' && 'sm:flex-row'
+				)}
+			>
+				{#if variant === 'text'}
+					<Card.Content class="flex min-w-0 flex-1 flex-col">
+						<div class="flex min-w-0 flex-1 flex-col gap-1">
+							{@render kicker(a)}
+							<h3 class={titleClass(a, 'card')}>{a.title}</h3>
+							{#if a.excerpt}
+								<p class="line-clamp-2 text-xs text-muted-foreground">{a.excerpt}</p>
+							{/if}
+							<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">{byline(a)}</p>
+						</div>
+					</Card.Content>
+				{:else if variant === 'feature'}
+					<!-- Wide bento slot: horizontal card so the thumb stays level. -->
+					<div class="w-full shrink-0 sm:w-1/2">
+						{@render thumb(a, 'aspect-video sm:h-full')}
+					</div>
+					<Card.Content class="flex min-w-0 flex-1 flex-col">
+						<div class="flex min-w-0 flex-1 flex-col gap-1">
+							{@render kicker(a)}
+							<h3 class={titleClass(a, 'feature')}>{a.title}</h3>
+							{#if a.excerpt}
+								<p class="line-clamp-2 text-xs text-muted-foreground">{a.excerpt}</p>
+							{/if}
+							<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">{byline(a)}</p>
+						</div>
+					</Card.Content>
+				{:else}
+					{@render thumb(a, 'aspect-video')}
+					<Card.Content class="flex min-w-0 flex-1 flex-col">
+						<div class="flex min-w-0 flex-1 flex-col gap-1">
+							{@render kicker(a)}
+							<h3 class={titleClass(a, 'card')}>{a.title}</h3>
+							{#if showExcerpt(a) && a.excerpt}
+								<p class="line-clamp-2 text-xs text-muted-foreground">{a.excerpt}</p>
+							{/if}
+							<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">{byline(a)}</p>
+						</div>
+					</Card.Content>
+				{/if}
+			</Card.Root>
+		</a>
+		{@render cardMenu(a)}
+	</div>
 {/snippet}
 
 {#if articles.length === 0 || !sections.lead}
@@ -171,74 +220,232 @@
 	</div>
 {:else}
 	{@const lead = sections.lead}
+	{@const hero = sections.hero}
 	<div class="min-h-0 flex-1 overflow-y-auto">
 		<div class="mx-auto w-full max-w-7xl px-4 pt-6 pb-8 sm:px-5">
-			<div class="grid gap-3 lg:grid-cols-3">
-				<a
-					href={articleHref(lead.id)}
-					onclick={() => onSelect?.(lead.id)}
-					aria-current={selectedId === String(lead.id) ? 'true' : undefined}
-					class={cn(
-						'block min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:col-span-2',
-						selectedId === String(lead.id) && 'ring-2 ring-ring'
-					)}
-				>
-					<Card.Root class="h-full min-w-0 overflow-hidden">
-						{@render thumb(lead, 'aspect-video')}
-						<Card.Content class="flex min-w-0 flex-1 flex-col">
-							<div class="flex min-w-0 flex-col gap-2">
-								{@render kicker(lead)}
-								<h2
-									class="line-clamp-2 text-xl font-bold tracking-tight text-balance text-foreground"
-								>
-									{lead.title}
-								</h2>
-								{#if lead.excerpt}
-									<p class="line-clamp-1 text-xs text-muted-foreground">{lead.excerpt}</p>
-								{/if}
-								<p class="flex items-center gap-1.5 text-xs text-muted-foreground">
-									<span class="truncate">{byline(lead)}</span>
-									{#if lead.readMinutes}
-										<span class="flex shrink-0 items-center gap-1">
-											<Clock class="size-3" />
-											{lead.readMinutes} min
-										</span>
-									{/if}
-								</p>
-							</div>
-						</Card.Content>
-					</Card.Root>
-				</a>
-				{#if sections.secondary.length > 0}
-					<div class="flex min-w-0 flex-col gap-3">
-						{#each sections.secondary as a (a.id)}
-							{@const isSelected = selectedId === String(a.id)}
+			{#if hero === 'trio'}
+				<!-- Three image-led stories: even three-up hero row. -->
+				<div class="grid items-stretch gap-3 lg:grid-cols-3">
+					<div class="group relative min-w-0">
+						<a
+							href={articleHref(lead.id)}
+							onclick={() => onSelect?.(lead.id)}
+							aria-current={selectedId === String(lead.id) ? 'true' : undefined}
+							class={cn(
+								'block h-full min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+								selectedId === String(lead.id) && 'ring-2 ring-ring'
+							)}
+						>
+							<Card.Root class="flex h-full min-w-0 flex-col overflow-hidden">
+								{@render thumb(lead, 'aspect-video')}
+								<Card.Content class="flex min-w-0 flex-1 flex-col">
+									<div class="flex min-w-0 flex-1 flex-col gap-2">
+										{@render kicker(lead)}
+										<h2
+											class="line-clamp-2 text-xl font-bold tracking-tight text-balance text-foreground"
+										>
+											{lead.title}
+										</h2>
+										{#if lead.excerpt}
+											<p class="line-clamp-1 text-xs text-muted-foreground">{lead.excerpt}</p>
+										{/if}
+										<p class="mt-auto flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+											<span class="truncate">{byline(lead)}</span>
+											{#if lead.readMinutes}
+												<span class="flex shrink-0 items-center gap-1">
+													<Clock class="size-3" />
+													{lead.readMinutes} min
+												</span>
+											{/if}
+										</p>
+									</div>
+								</Card.Content>
+							</Card.Root>
+						</a>
+						{@render cardMenu(lead)}
+					</div>
+					{#each sections.secondary as a (a.id)}
+						{@const isSelected = selectedId === String(a.id)}
+						<div class="group relative min-w-0">
 							<a
 								href={articleHref(a.id)}
 								onclick={() => onSelect?.(a.id)}
 								aria-current={isSelected ? 'true' : undefined}
 								class={cn(
-									'block min-w-0 flex-1 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+									'block h-full min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
 									isSelected && 'ring-2 ring-ring'
 								)}
 							>
-								<Card.Root class="h-full min-w-0 overflow-hidden">
+								<Card.Root class="flex h-full min-w-0 flex-col overflow-hidden">
 									{@render thumb(a, 'aspect-video')}
 									<Card.Content class="flex min-w-0 flex-1 flex-col">
-										<div class="flex min-w-0 flex-col gap-1">
+										<div class="flex min-w-0 flex-1 flex-col gap-1">
 											{@render kicker(a)}
 											<h3 class={titleClass(a, 'card')}>
 												{a.title}
 											</h3>
-											<p class="truncate text-xs text-muted-foreground">{byline(a)}</p>
+											<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">{byline(a)}</p>
 										</div>
 									</Card.Content>
 								</Card.Root>
 							</a>
+							{@render cardMenu(a)}
+						</div>
+					{/each}
+				</div>
+			{:else if hero === 'split'}
+				<!-- Lead + one visual backup: asymmetric 8/4 hero. -->
+				<div class="grid items-stretch gap-3 lg:grid-cols-12">
+					<div class="group relative min-w-0 lg:col-span-8">
+						<a
+							href={articleHref(lead.id)}
+							onclick={() => onSelect?.(lead.id)}
+							aria-current={selectedId === String(lead.id) ? 'true' : undefined}
+							class={cn(
+								'block h-full min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+								selectedId === String(lead.id) && 'ring-2 ring-ring'
+							)}
+						>
+							<Card.Root class="flex h-full min-w-0 flex-col overflow-hidden">
+								{@render thumb(lead, 'aspect-video')}
+								<Card.Content class="flex min-w-0 flex-1 flex-col">
+									<div class="flex min-w-0 flex-1 flex-col gap-2">
+										{@render kicker(lead)}
+										<h2
+											class="line-clamp-2 text-xl font-bold tracking-tight text-balance text-foreground"
+										>
+											{lead.title}
+										</h2>
+										{#if lead.excerpt}
+											<p class="line-clamp-1 text-xs text-muted-foreground">{lead.excerpt}</p>
+										{/if}
+										<p class="mt-auto flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
+											<span class="truncate">{byline(lead)}</span>
+											{#if lead.readMinutes}
+												<span class="flex shrink-0 items-center gap-1">
+													<Clock class="size-3" />
+													{lead.readMinutes} min
+												</span>
+											{/if}
+										</p>
+									</div>
+								</Card.Content>
+							</Card.Root>
+						</a>
+						{@render cardMenu(lead)}
+					</div>
+					{#if sections.secondary.length > 0}
+						<div class="flex min-w-0 flex-col gap-3 lg:col-span-4">
+							{#each sections.secondary as a (a.id)}
+								{@const isSelected = selectedId === String(a.id)}
+								<div class="group relative min-w-0 flex-1">
+									<a
+										href={articleHref(a.id)}
+										onclick={() => onSelect?.(a.id)}
+										aria-current={isSelected ? 'true' : undefined}
+										class={cn(
+											'block h-full min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+											isSelected && 'ring-2 ring-ring'
+										)}
+									>
+										<Card.Root class="flex h-full min-w-0 flex-col overflow-hidden">
+											{@render thumb(a, 'aspect-video')}
+											<Card.Content class="flex min-w-0 flex-1 flex-col">
+												<div class="flex min-w-0 flex-1 flex-col gap-1">
+													{@render kicker(a)}
+													<h3 class={titleClass(a, 'card')}>
+														{a.title}
+													</h3>
+													<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">
+														{byline(a)}
+													</p>
+												</div>
+											</Card.Content>
+										</Card.Root>
+									</a>
+									{@render cardMenu(a)}
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			{:else}
+				<!-- Cover: full-width horizontal feature, backups as an even pair. -->
+				<div class="group relative min-w-0">
+					<a
+						href={articleHref(lead.id)}
+						onclick={() => onSelect?.(lead.id)}
+						aria-current={selectedId === String(lead.id) ? 'true' : undefined}
+						class={cn(
+							'block h-full min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+							selectedId === String(lead.id) && 'ring-2 ring-ring'
+						)}
+					>
+						<Card.Root class="h-full min-w-0 overflow-hidden sm:flex-row">
+							<div class="w-full shrink-0 sm:w-1/2">
+								{@render thumb(lead, 'aspect-video sm:h-full')}
+							</div>
+							<Card.Content class="flex min-w-0 flex-1 flex-col justify-center">
+								<div class="flex min-w-0 flex-col gap-2">
+									{@render kicker(lead)}
+									<h2
+										class="line-clamp-2 text-xl font-bold tracking-tight text-balance text-foreground"
+									>
+										{lead.title}
+									</h2>
+									{#if lead.excerpt}
+										<p class="line-clamp-2 text-xs text-muted-foreground">{lead.excerpt}</p>
+									{/if}
+									<p class="flex items-center gap-1.5 text-xs text-muted-foreground">
+										<span class="truncate">{byline(lead)}</span>
+										{#if lead.readMinutes}
+											<span class="flex shrink-0 items-center gap-1">
+												<Clock class="size-3" />
+												{lead.readMinutes} min
+											</span>
+										{/if}
+									</p>
+								</div>
+							</Card.Content>
+						</Card.Root>
+					</a>
+					{@render cardMenu(lead)}
+				</div>
+				{#if sections.secondary.length > 0}
+					<div class="mt-3 grid items-stretch gap-3 sm:grid-cols-2">
+						{#each sections.secondary as a (a.id)}
+							{@const isSelected = selectedId === String(a.id)}
+							<div class="group relative min-w-0">
+								<a
+									href={articleHref(a.id)}
+									onclick={() => onSelect?.(a.id)}
+									aria-current={isSelected ? 'true' : undefined}
+									class={cn(
+										'block h-full min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+										isSelected && 'ring-2 ring-ring'
+									)}
+								>
+									<Card.Root class="flex h-full min-w-0 flex-col overflow-hidden">
+										{@render thumb(a, 'aspect-video')}
+										<Card.Content class="flex min-w-0 flex-1 flex-col">
+											<div class="flex min-w-0 flex-1 flex-col gap-1">
+												{@render kicker(a)}
+												<h3 class={titleClass(a, 'card')}>
+													{a.title}
+												</h3>
+												<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">
+													{byline(a)}
+												</p>
+											</div>
+										</Card.Content>
+									</Card.Root>
+								</a>
+								{@render cardMenu(a)}
+							</div>
 						{/each}
 					</div>
 				{/if}
-			</div>
+			{/if}
 			{#each sections.blocks as block, bi (bi)}
 				{#if block.kind === 'latest'}
 					<div class="flex items-center gap-3 py-3">
@@ -249,8 +456,8 @@
 						{#each block.rows as row, ri (ri)}
 							<div class={rowGridClass()}>
 								{#each row.stories as st (st.article.id)}
-									<div class={cn(spanClass(st.span), 'min-w-0')}>
-										{@render storyCard(st.article, st.span === 12)}
+									<div class={cn(spanClass(st.span), 'flex min-w-0')}>
+										{@render storyCard(st.article, cardVariant(st.span, false))}
 									</div>
 								{/each}
 							</div>
@@ -258,6 +465,7 @@
 					</div>
 				{:else}
 					{@const desk = block.desk}
+					{@const textOnly = desk.pattern === 'headlines'}
 					<div class="flex items-center gap-3 py-3">
 						<h2 class="shrink-0 text-base font-bold tracking-tight text-foreground capitalize">
 							{desk.tag.name}
@@ -274,34 +482,51 @@
 						{#each desk.rows as row, ri (ri)}
 							<div class={rowGridClass()}>
 								{#each row.stories as st (st.article.id)}
-									<div class={cn(spanClass(st.span), 'min-w-0')}>
-										{@render storyCard(st.article, st.span === 12)}
+									<div class={cn(spanClass(st.span), 'flex min-w-0')}>
+										{@render storyCard(st.article, cardVariant(st.span, textOnly))}
 									</div>
 								{/each}
 							</div>
 						{/each}
 					</div>
 					{#if desk.more.length > 0}
-						<div class="mt-3 overflow-hidden rounded-xl border border-border bg-card">
-							{#each desk.more as a (a.id)}
+						<div
+							class={desk.more.length >= 4 ? 'mt-3 grid gap-3 lg:grid-cols-2' : 'mt-3 grid gap-3'}
+						>
+							{#each desk.more as a, mi (a.id)}
 								{@const isSelected = selectedId === String(a.id)}
-								<a
-									href={articleHref(a.id)}
-									onclick={() => onSelect?.(a.id)}
-									aria-current={isSelected ? 'true' : undefined}
+								<div
 									class={cn(
-										'flex min-w-0 items-center gap-3 border-b border-border px-4 py-2 transition-colors last:border-b-0 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none active:bg-accent',
+										'group flex min-w-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 transition-colors hover:bg-accent active:bg-accent',
 										isSelected && 'bg-accent'
 									)}
 								>
-									<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-										<span class="truncate text-sm font-medium text-foreground">{a.title}</span>
-										<span class="truncate text-xs text-muted-foreground">{byline(a)}</span>
-									</span>
-									<span class="shrink-0 text-xs text-muted-foreground">
-										{a.readMinutes ? `${a.readMinutes} min` : dateLabel(a.publishedAt)}
-									</span>
-								</a>
+									<a
+										href={articleHref(a.id)}
+										onclick={() => onSelect?.(a.id)}
+										aria-current={isSelected ? 'true' : undefined}
+										class="flex min-w-0 flex-1 items-center gap-3 focus-visible:outline-none"
+									>
+										{#if mi === 0 && a.imageUrl}
+											<ArticleImage
+												seed={a}
+												src={a.imageUrl}
+												alt=""
+												class="hidden h-16 w-16 shrink-0 rounded-lg sm:block"
+											/>
+										{/if}
+										<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+											<span class="truncate text-sm font-medium text-foreground">{a.title}</span>
+											<span class="truncate text-xs text-muted-foreground">{byline(a)}</span>
+										</span>
+										<span class="shrink-0 text-xs text-muted-foreground">
+											{a.readMinutes ? `${a.readMinutes} min` : dateLabel(a.publishedAt)}
+										</span>
+									</a>
+									{#if showFeedback}
+										<ArticleFeedbackMenu articleId={a.id} isSaved={a.isSaved} isRead={a.isRead} />
+									{/if}
+								</div>
 							{/each}
 						</div>
 					{/if}
@@ -317,23 +542,30 @@
 				<div class="overflow-hidden rounded-xl border border-border bg-card">
 					{#each sections.rest as a (a.id)}
 						{@const isSelected = selectedId === String(a.id)}
-						<a
-							href={articleHref(a.id)}
-							onclick={() => onSelect?.(a.id)}
-							aria-current={isSelected ? 'true' : undefined}
+						<div
 							class={cn(
-								'flex min-w-0 items-center gap-3 border-b border-border px-4 py-2 transition-colors last:border-b-0 hover:bg-accent focus-visible:bg-accent focus-visible:outline-none active:bg-accent',
+								'group flex min-w-0 items-center gap-2 border-b border-border px-4 py-2 transition-colors last:border-b-0 hover:bg-accent active:bg-accent',
 								isSelected && 'bg-accent'
 							)}
 						>
-							<span class="flex min-w-0 flex-1 flex-col gap-0.5">
-								<span class="truncate text-sm font-medium text-foreground">{a.title}</span>
-								<span class="truncate text-xs text-muted-foreground">{byline(a)}</span>
-							</span>
-							<span class="shrink-0 text-xs text-muted-foreground">
-								{a.readMinutes ? `${a.readMinutes} min` : dateLabel(a.publishedAt)}
-							</span>
-						</a>
+							<a
+								href={articleHref(a.id)}
+								onclick={() => onSelect?.(a.id)}
+								aria-current={isSelected ? 'true' : undefined}
+								class="flex min-w-0 flex-1 items-center gap-3 focus-visible:outline-none"
+							>
+								<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+									<span class="truncate text-sm font-medium text-foreground">{a.title}</span>
+									<span class="truncate text-xs text-muted-foreground">{byline(a)}</span>
+								</span>
+								<span class="shrink-0 text-xs text-muted-foreground">
+									{a.readMinutes ? `${a.readMinutes} min` : dateLabel(a.publishedAt)}
+								</span>
+							</a>
+							{#if showFeedback}
+								<ArticleFeedbackMenu articleId={a.id} isSaved={a.isSaved} isRead={a.isRead} />
+							{/if}
+						</div>
 					{/each}
 				</div>
 			{/if}

@@ -25,6 +25,7 @@
 		showExcerpts = true,
 		showReadMinutes = true,
 		density = 'comfortable',
+		showFeedback = false,
 		onExpand,
 		onSelect
 	}: {
@@ -39,6 +40,8 @@
 		showExcerpts?: boolean;
 		showReadMinutes?: boolean;
 		density?: 'comfortable' | 'compact';
+		/** True on Recommended: rows get the "less like this" menu. */
+		showFeedback?: boolean;
 		onExpand?: () => void;
 		onSelect?: (id: number) => void;
 	} = $props();
@@ -135,7 +138,11 @@
 	<!-- Magazine view owns its own scroll container and front-page rhythm,
 	so it renders outside the row-padding frame used by the other views. -->
 	{#if ready && view === 'magazine'}
-		<MagazineView articles={sortedArticles} onSelect={(id) => onSelect?.(id) ?? onExpand?.()} />
+		<MagazineView
+			articles={sortedArticles}
+			{showFeedback}
+			onSelect={(id) => onSelect?.(id) ?? onExpand?.()}
+		/>
 	{:else}
 		<div class="flex min-h-0 w-full flex-1 flex-col pt-4 pb-6 sm:pt-6 sm:pb-8">
 			{#if ready}
@@ -147,6 +154,7 @@
 					{showExcerpts}
 					{showReadMinutes}
 					{density}
+					{showFeedback}
 					onSelect={(id) => onSelect?.(id) ?? onExpand?.()}
 				/>
 			{:else}

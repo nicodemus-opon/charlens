@@ -9,6 +9,7 @@
 	import * as Empty from '$lib/components/ui/empty/index.js';
 	import { cn } from '$lib/utils.js';
 	import { Bookmark, BookmarkCheck, Clock, Newspaper } from '@lucide/svelte';
+	import ArticleFeedbackMenu from '$lib/components/article-feedback-menu.svelte';
 
 	let {
 		articles = [],
@@ -21,6 +22,7 @@
 		showExcerpts = true,
 		showReadMinutes = true,
 		density = 'comfortable',
+		showFeedback = false,
 		onSelect
 	}: {
 		articles: ArticleRow[];
@@ -38,10 +40,16 @@
 		showExcerpts?: boolean;
 		showReadMinutes?: boolean;
 		density?: 'comfortable' | 'compact';
+		/** True on Recommended: each row gets a "less like this" menu (dismiss / mute feed / mute topic). */
+		showFeedback?: boolean;
 		onSelect?: (id: number) => void;
 	} = $props();
 
 	const selectedId = $derived(href ? null : $page.url.searchParams.get('article'));
+
+	const singleFeed = $derived(
+		articles.length > 0 && articles.every((a) => a.feedTitle === articles[0].feedTitle)
+	);
 
 	function articleHref(id: number) {
 		if (href) return href(id);
@@ -80,42 +88,47 @@
 	>
 		{#each articles as a (a.id)}
 			{@const isSelected = selectedId === String(a.id)}
-			<a
-				href={articleHref(a.id)}
-				onclick={() => onSelect?.(a.id)}
-				aria-current={isSelected ? 'true' : undefined}
-				class={cn(
-					'block min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-					isSelected && 'ring-2 ring-ring'
-				)}
-			>
-				<Card.Root class="h-full min-w-0">
-					{#if showImages}
-						<ArticleImage seed={a} src={a.imageUrl} alt="" class="aspect-video w-full" />
-					{/if}
-					<Card.Content class="flex min-w-0 flex-1 flex-col">
-						<div class="flex min-w-0 flex-col gap-1">
-							<div class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-								<span class="truncate font-medium">{a.feedTitle}</span>
-								{#if showReadMinutes && a.readMinutes}
-									<span class="flex shrink-0 items-center gap-1">
-										<Clock class="size-3" />
-										{a.readMinutes} min
-									</span>
-								{/if}
-								{#if !a.isRead}<Badge variant="default">New</Badge>{/if}
-								{#if a.isSaved}<Badge variant="secondary">Saved</Badge>{/if}
-								{#if a.tags[0]}
-									<Badge variant="outline" class="max-w-36 justify-start">
-										<span class="min-w-0 truncate">{a.tags[0].name}</span>
-									</Badge>
-								{/if}
+			<div class="group relative min-w-0">
+				<a
+					href={articleHref(a.id)}
+					onclick={() => onSelect?.(a.id)}
+					aria-current={isSelected ? 'true' : undefined}
+					class={cn(
+						'block min-w-0 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+						isSelected && 'ring-2 ring-ring'
+					)}
+				>
+					<Card.Root class="h-full min-w-0">
+						{#if showImages}
+							<ArticleImage seed={a} src={a.imageUrl} alt="" class="aspect-video w-full" />
+						{/if}
+						<Card.Content class="flex min-w-0 flex-1 flex-col">
+							<div class="flex min-w-0 flex-col gap-1">
+								<div class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+									<span class="truncate font-medium">{a.feedTitle}</span>
+									{#if showReadMinutes && a.readMinutes}
+										<span class="flex shrink-0 items-center gap-1">
+											<Clock class="size-3" />
+											{a.readMinutes} min
+										</span>
+									{/if}
+									{#if !a.isRead}<Badge variant="default">New</Badge>{/if}
+									{#if a.isSaved}<Badge variant="secondary">Saved</Badge>{/if}
+									{#if a.tags[0]}
+										<Badge variant="outline" class="max-w-36 justify-start">
+											<span class="min-w-0 truncate">{a.tags[0].name}</span>
+										</Badge>
+									{/if}
+								</div>
+								<Card.Title class="line-clamp-2">{a.title}</Card.Title>
 							</div>
-							<Card.Title class="line-clamp-2">{a.title}</Card.Title>
-						</div>
-					</Card.Content>
-				</Card.Root>
-			</a>
+						</Card.Content>
+					</Card.Root>
+				</a>
+				{#if showFeedback}
+					<ArticleFeedbackMenu articleId={a.id} isSaved={a.isSaved} isRead={a.isRead} overlay />
+				{/if}
+			</div>
 		{/each}
 	</div>
 {:else if view === 'compact'}
@@ -125,8 +138,8 @@
 			<div
 				class={cn(
 					density === 'compact'
-						? 'flex items-center gap-2 border-b border-border px-4 py-1.5 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-1'
-						: 'flex items-center gap-2 border-b border-border px-4 py-3 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-1.5',
+						? 'group flex items-center gap-2 border-b border-border px-4 py-1.5 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-1'
+						: 'group flex items-center gap-2 border-b border-border px-4 py-3 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-1.5',
 					isSelected && 'bg-accent'
 				)}
 			>
@@ -151,8 +164,11 @@
 						isSelected && 'bg-accent'
 					)}
 				>
-					<span class="hidden max-w-36 truncate text-muted-foreground sm:inline">{a.feedTitle}</span
-					>
+					{#if !singleFeed}
+						<span class="hidden max-w-36 truncate text-muted-foreground sm:inline"
+							>{a.feedTitle}</span
+						>
+					{/if}
 					<span class="flex min-w-0 flex-1 items-baseline gap-2 overflow-hidden">
 						<span class="min-w-0 flex-1 truncate font-semibold text-foreground sm:flex-none"
 							>{a.title}</span
@@ -165,6 +181,9 @@
 						{showReadMinutes && a.readMinutes ? `${a.readMinutes}min` : dateLabel(a.publishedAt)}
 					</span>
 				</a>
+				{#if showFeedback}
+					<ArticleFeedbackMenu articleId={a.id} isSaved={a.isSaved} isRead={a.isRead} />
+				{/if}
 			</div>
 		{/each}
 	</div>
@@ -172,54 +191,61 @@
 	<div class="@container min-h-0 flex-1 overflow-y-auto">
 		{#each articles as a (a.id)}
 			{@const isSelected = selectedId === String(a.id)}
-			<a
-				href={articleHref(a.id)}
-				onclick={() => onSelect?.(a.id)}
-				aria-current={isSelected ? 'true' : undefined}
+			<div
 				class={cn(
 					density === 'compact'
-						? 'flex w-full items-start gap-4 border-b border-border px-4 py-2 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none active:bg-accent sm:px-5 sm:py-2'
-						: 'flex w-full items-start gap-4 border-b border-border px-4 py-3 transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none active:bg-accent sm:px-5 sm:py-4',
+						? 'group flex w-full items-start gap-2 border-b border-border px-4 py-2 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-2'
+						: 'group flex w-full items-start gap-2 border-b border-border px-4 py-3 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-4',
 					isSelected && 'bg-accent'
 				)}
 			>
-				{#if showImages}
-					<ArticleImage
-						seed={a}
-						src={a.imageUrl}
-						alt=""
-						class="size-14 shrink-0 rounded-lg @sm:size-16 @md:size-20 @lg:size-24"
-					/>
-				{/if}
-				<div class="flex min-w-0 flex-1 flex-col gap-1.5">
-					<div class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-						<span class="truncate">{a.feedTitle}</span>
-						<span aria-hidden="true">·</span>
-						<span class="shrink-0">{dateLabel(a.publishedAt)}</span>
-						{#if showReadMinutes && a.readMinutes}
-							<span class="flex shrink-0 items-center gap-1">
-								<Clock class="size-3" />
-								{a.readMinutes} min
-							</span>
+				<a
+					href={articleHref(a.id)}
+					onclick={() => onSelect?.(a.id)}
+					aria-current={isSelected ? 'true' : undefined}
+					class="flex min-w-0 flex-1 items-start gap-4 focus-visible:outline-none"
+				>
+					{#if showImages}
+						<ArticleImage
+							seed={a}
+							src={a.imageUrl}
+							alt=""
+							class="size-14 shrink-0 rounded-lg @sm:size-16 @md:size-20 @lg:size-24"
+						/>
+					{/if}
+					<div class="flex min-w-0 flex-1 flex-col gap-1.5">
+						<div class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+							<span class="truncate">{a.feedTitle}</span>
+							<span aria-hidden="true">·</span>
+							<span class="shrink-0">{dateLabel(a.publishedAt)}</span>
+							{#if showReadMinutes && a.readMinutes}
+								<span class="flex shrink-0 items-center gap-1">
+									<Clock class="size-3" />
+									{a.readMinutes} min
+								</span>
+							{/if}
+						</div>
+						<p class="line-clamp-2 text-sm font-medium text-foreground">{a.title}</p>
+						{#if showExcerpts && a.excerpt}
+							<p class="line-clamp-2 text-xs text-muted-foreground">{a.excerpt}</p>
+						{/if}
+						{#if !a.isRead || a.isSaved || a.tags.length > 0}
+							<div class="flex min-w-0 flex-wrap items-center gap-1.5 overflow-hidden pt-1.5">
+								{#if !a.isRead}<Badge variant="default" class="shrink-0">New</Badge>{/if}
+								{#if a.isSaved}<Badge variant="secondary" class="shrink-0">Saved</Badge>{/if}
+								{#each a.tags.slice(0, 3) as t (t.id)}
+									<Badge variant="outline" class="max-w-36 justify-start">
+										<span class="min-w-0 truncate">{t.name}</span>
+									</Badge>
+								{/each}
+							</div>
 						{/if}
 					</div>
-					<p class="line-clamp-2 text-sm font-medium text-foreground">{a.title}</p>
-					{#if showExcerpts && a.excerpt}
-						<p class="line-clamp-2 text-xs text-muted-foreground">{a.excerpt}</p>
-					{/if}
-					{#if !a.isRead || a.isSaved || a.tags.length > 0}
-						<div class="flex min-w-0 flex-wrap items-center gap-1.5 overflow-hidden pt-1.5">
-							{#if !a.isRead}<Badge variant="default" class="shrink-0">New</Badge>{/if}
-							{#if a.isSaved}<Badge variant="secondary" class="shrink-0">Saved</Badge>{/if}
-							{#each a.tags.slice(0, 3) as t (t.id)}
-								<Badge variant="outline" class="max-w-36 justify-start">
-									<span class="min-w-0 truncate">{t.name}</span>
-								</Badge>
-							{/each}
-						</div>
-					{/if}
-				</div>
-			</a>
+				</a>
+				{#if showFeedback}
+					<ArticleFeedbackMenu articleId={a.id} isSaved={a.isSaved} isRead={a.isRead} />
+				{/if}
+			</div>
 		{/each}
 	</div>
 {/if}

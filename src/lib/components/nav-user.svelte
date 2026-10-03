@@ -1,7 +1,16 @@
 <script lang="ts">
-	import { ChevronsUpDown, LogOut, PanelLeft, Plus, RefreshCw, Settings } from '@lucide/svelte';
+	import {
+		ChevronsUpDown,
+		Keyboard,
+		LogOut,
+		PanelLeft,
+		Plus,
+		RefreshCw,
+		Settings
+	} from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { authClient } from '$lib/auth-client.js';
+	import { shortcutsState } from '$lib/shortcuts.svelte.js';
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
@@ -112,6 +121,11 @@
 						<PanelLeft />
 						Toggle sidebar
 						<DropdownMenu.Shortcut>⌘B</DropdownMenu.Shortcut>
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onSelect={() => (shortcutsState.open = true)}>
+						<Keyboard />
+						Keyboard shortcuts
+						<DropdownMenu.Shortcut>?</DropdownMenu.Shortcut>
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 				{#if user}

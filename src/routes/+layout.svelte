@@ -9,6 +9,8 @@
 	import { ModeWatcher, setMode } from 'mode-watcher';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
+	import ShortcutsDialog from '$lib/components/shortcuts-dialog.svelte';
+	import { shortcutsState } from '$lib/shortcuts.svelte.js';
 	import { initPwa } from '$lib/pwa';
 	import { settingsStore } from '$lib/settings.svelte.js';
 
@@ -66,3 +68,4 @@
 		</Sidebar.Inset>
 	</Sidebar.Provider>
 {/if}
+<ShortcutsDialog bind:open={shortcutsState.open} />

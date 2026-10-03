@@ -3,6 +3,8 @@ import type { Actions, PageServerLoad } from './$types';
 import { requireUser } from '$lib/server/guard';
 import { getUserSettings, resetUserSettings, setUserSetting } from '$lib/server/settings';
 import { isSettingKey, sanitizeSetting } from '$lib/settings.js';
+import { OPML_MAX_BYTES, OpmlError, parseOpml } from '$lib/opml';
+import { addFeed, populateFeed } from '$lib/server/rss/refresh';
 import { db } from '$lib/server/db';
 import { articleEvent, userFeedback, userSetting, userViewPref } from '$lib/server/db/feeds.schema';
 import { feed } from '$lib/server/db/feeds.schema';
@@ -86,6 +88,56 @@ export const actions: Actions = {
 			return fail(500, { message: 'Could not reset settings' });
 		}
 		return { ok: true };
+	},
+	importOpml: async ({ request, locals, platform }) => {
+		const user = requireUser(locals);
+		const form = await request.formData();
+		const file = form.get('file');
+		if (!(file instanceof File) || file.size === 0) {
+			return fail(400, { message: 'Choose an OPML file to import.' });
+		}
+		if (file.size > OPML_MAX_BYTES) {
+			return fail(400, { message: 'File too large (max 2 MB).' });
+		}
+		let text: string;
+		try {
+			text = await file.text();
+		} catch (e) {
+			console.error('importOpml read failed', e);
+			return fail(400, { message: 'Could not read that file.' });
+		}
+		let entries;
+		try {
+			entries = parseOpml(text);
+		} catch (e) {
+			const message = e instanceof OpmlError ? e.message : 'Could not parse that OPML file.';
+			return fail(400, { message });
+		}
+		let added = 0;
+		let skipped = 0;
+		for (const entry of entries) {
+			try {
+				new URL(entry.url);
+			} catch {
+				skipped += 1;
+				continue;
+			}
+			try {
+				// Fast path (same as the add-feed form): insert + subscribe only.
+				// Discovery/fetch runs after the response so large imports
+				// don't time out the action.
+				const feedId = await addFeed(user.id, entry.url, entry.collection);
+				added += 1;
+				const background = populateFeed(feedId, entry.url);
+				(
+					platform as { context?: { waitUntil?: (p: Promise<unknown>) => void } } | undefined
+				)?.context?.waitUntil?.(background);
+			} catch (e) {
+				console.error('importOpml feed failed', entry.url, e);
+				skipped += 1;
+			}
+		}
+		return { ok: true, added, skipped };
 	},
 	resetScopes: async ({ locals }) => {
 		const user = requireUser(locals);

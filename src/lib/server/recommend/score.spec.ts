@@ -15,6 +15,7 @@ import {
 	keywordMatchBoost,
 	ndcgAtK,
 	negAffinity,
+	normalizedFeedScores,
 	qualityScore,
 	rankScored,
 	rankWithMMR,
@@ -168,6 +169,72 @@ describe('qualityScore', () => {
 		expect(good).toBeGreaterThan(thin);
 		expect(good).toBeLessThanOrEqual(1);
 		expect(thin).toBeGreaterThanOrEqual(0);
+	});
+
+	it('demotes clickbait title shapes', () => {
+		const plain = qualityScore({
+			title: 'Chip breakthrough promises faster phones',
+			titleLength: 41
+		});
+		const shouty = qualityScore({
+			title: 'CHIP BREAKTHROUGH PROMISES FASTER PHONES',
+			titleLength: 41
+		});
+		const bangy = qualityScore({
+			title: 'Chip breakthrough promises faster phones?!?',
+			titleLength: 45
+		});
+		expect(plain).toBeGreaterThan(shouty);
+		expect(plain).toBeGreaterThan(bangy);
+	});
+});
+
+describe('normalizedFeedScores', () => {
+	it('dampens high-volume feeds without mutating the input', () => {
+		const input = new Map([
+			[1, 0.8],
+			[2, 0.8]
+		]);
+		const volume = new Map([
+			[1, 40],
+			[2, 2]
+		]);
+		const out = normalizedFeedScores(input, volume);
+		expect(out.get(2)).toBeGreaterThan(out.get(1)!);
+		expect(input.get(1)).toBe(0.8);
+		expect(out.get(2)).toBeCloseTo(0.8 / Math.log2(3));
+	});
+
+	it('leaves single-item feeds untouched', () => {
+		const out = normalizedFeedScores(new Map([[1, 0.5]]), new Map([[1, 1]]));
+		expect(out.get(1)).toBe(0.5);
+	});
+});
+
+describe('sessionSemantic', () => {
+	it('lifts a session-matching story above a long-term-only match', () => {
+		const aff = buildAffinityMaps({
+			feedCounts: new Map(),
+			tagCounts: new Map(),
+			authorCounts: new Map()
+		});
+		const now = Date.now();
+		const base = {
+			id: 1,
+			feedId: 9,
+			author: null,
+			publishedAt: new Date(now - 3600000),
+			isRead: false,
+			isSaved: false,
+			tags: [] as string[],
+			semanticSimilarity: 0.5
+		};
+		const plain = scoreCandidate(base, aff, { now });
+		const session = scoreCandidate({ ...base, id: 2 }, aff, {
+			now,
+			sessionSemantic: 0.9
+		});
+		expect(session.score).toBeGreaterThan(plain.score);
 	});
 });
 

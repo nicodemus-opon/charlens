@@ -233,6 +233,28 @@ describe('golden: session interest lifts now-topics', () => {
 	});
 });
 
+describe('golden: session semantic lifts now-topics', () => {
+	it('a session-semantic match beats an otherwise identical story', () => {
+		const aff = techUser();
+		const now = NOW;
+		const base = {
+			feedId: 9,
+			author: null,
+			publishedAt: new Date(now - HOUR),
+			isRead: false,
+			isSaved: false,
+			tags: [] as string[],
+			semanticSimilarity: 0.5
+		};
+		const plain = scoreCandidate({ ...base, id: 1 }, aff, { now });
+		const session = scoreCandidate({ ...base, id: 2 }, aff, {
+			now,
+			sessionSemantic: 0.9
+		});
+		expect(session.score).toBeGreaterThan(plain.score);
+	});
+});
+
 describe('golden: embedding-free fallback', () => {
 	it('still ranks sensibly with no semantic signal at all', () => {
 		const aff = techUser();

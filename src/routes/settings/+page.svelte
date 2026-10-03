@@ -2,9 +2,11 @@
 	import { onMount } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { setMode } from 'mode-watcher';
+	import { Download, FileUp, X } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import SettingRow from '$lib/components/setting-row.svelte';
 	import SettingOptions from '$lib/components/setting-options.svelte';
@@ -38,7 +40,46 @@
 
 	let savedFlash = $state<string | null>(null);
 	let busyReset = $state(false);
+	let busyImport = $state(false);
 	let section = $state('appearance');
+
+	const OPML_MAX_BYTES = 2 * 1024 * 1024;
+	let fileInput = $state<HTMLInputElement | null>(null);
+	let importFile = $state<File | null>(null);
+	let importError = $state<string | null>(null);
+	let importResult = $state<string | null>(null);
+	let dragOver = $state(false);
+
+	function formatFileSize(bytes: number): string {
+		if (bytes < 1024) return `${bytes} B`;
+		if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	}
+
+	function pickImportFile(files: FileList | null | undefined) {
+		importResult = null;
+		const file = files?.[0] ?? null;
+		if (!file) {
+			importFile = null;
+			importError = null;
+			return;
+		}
+		if (file.size > OPML_MAX_BYTES) {
+			importFile = null;
+			importError = `"${file.name}" is too large (max 2 MB).`;
+			if (fileInput) fileInput.value = '';
+			return;
+		}
+		importFile = file;
+		importError = null;
+	}
+
+	function clearImportFile() {
+		importFile = null;
+		importError = null;
+		if (fileInput) fileInput.value = '';
+		fileInput?.focus();
+	}
 
 	function flash(msg: string) {
 		savedFlash = msg;
@@ -353,8 +394,139 @@
 	{:else}
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Data</Card.Title>
-				<Card.Description>Start over without losing feeds.</Card.Description>
+				<Card.Title>Feed transfer</Card.Title>
+				<Card.Description>Move feeds between apps with OPML. Nothing else changes.</Card.Description
+				>
+			</Card.Header>
+			<Card.Content>
+				<div class="flex flex-col gap-3 py-2">
+					<div class="flex flex-wrap items-center justify-between gap-2">
+						<p class="text-xs text-muted-foreground">Download your feeds with their collections.</p>
+						<Button variant="outline" size="sm" href="/settings/opml">
+							<Download />
+							Export feeds
+						</Button>
+					</div>
+					<Separator />
+					<form
+						method="POST"
+						action="?/importOpml"
+						enctype="multipart/form-data"
+						class="flex flex-col gap-2"
+						use:enhance={({ formElement }) => {
+							busyImport = true;
+							return async ({ result, update }) => {
+								busyImport = false;
+								if (result.type === 'success' && result.data) {
+									const { added, skipped } = result.data as {
+										added: number;
+										skipped: number;
+									};
+									formElement.reset();
+									clearImportFile();
+									importResult =
+										`Imported ${added} feed${added === 1 ? '' : 's'}` +
+										(skipped > 0
+											? `, skipped ${skipped} duplicate${skipped === 1 ? '' : 's'}`
+											: '') +
+										'. New feeds load in the background.';
+									flash(importResult);
+								} else if (result.type === 'failure') {
+									importError = String(result.data?.message ?? 'Import failed');
+								}
+								await update();
+							};
+						}}
+					>
+						<div
+							role="button"
+							tabindex="0"
+							aria-label="Choose an OPML file to import"
+							class="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-6 text-center"
+							class:border-primary={dragOver}
+							class:bg-muted={dragOver}
+							class:border-border={!dragOver}
+							onclick={() => fileInput?.click()}
+							onkeydown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault();
+									fileInput?.click();
+								}
+							}}
+							ondragover={(e) => {
+								e.preventDefault();
+								dragOver = true;
+							}}
+							ondragleave={() => (dragOver = false)}
+							ondrop={(e) => {
+								e.preventDefault();
+								dragOver = false;
+								const files = e.dataTransfer?.files;
+								if (fileInput && files?.length) {
+									fileInput.files = files;
+									pickImportFile(files);
+								}
+							}}
+						>
+							<FileUp class="size-5 text-muted-foreground" />
+							{#if importFile}
+								<p class="text-sm font-medium break-all text-foreground">{importFile.name}</p>
+								<p class="text-xs text-muted-foreground">
+									{formatFileSize(importFile.size)} · drop another file or click to replace
+								</p>
+							{:else}
+								<p class="text-sm font-medium text-foreground">
+									Drop an OPML file here, or click to browse
+								</p>
+								<p class="text-xs text-muted-foreground">
+									.opml or .xml · max 2 MB · up to 500 feeds · works with FreshRSS, Miniflux and
+									other readers
+								</p>
+							{/if}
+						</div>
+						<Input
+							bind:ref={fileInput}
+							id="opml-file"
+							name="file"
+							type="file"
+							accept=".opml,.xml"
+							class="hidden"
+							required
+							disabled={busyImport}
+							onchange={(e) => pickImportFile(e.currentTarget.files)}
+						/>
+						{#if importError}
+							<p role="alert" class="text-xs text-destructive">{importError}</p>
+						{/if}
+						{#if importResult}
+							<p role="status" class="text-xs text-muted-foreground">{importResult}</p>
+						{/if}
+						<div class="flex flex-wrap items-center gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								type="submit"
+								disabled={busyImport || !importFile || importError !== null}
+							>
+								{busyImport ? 'Importing…' : 'Import feeds'}
+							</Button>
+							{#if importFile && !busyImport}
+								<Button variant="ghost" size="sm" type="button" onclick={clearImportFile}>
+									<X />
+									Clear
+								</Button>
+							{/if}
+						</div>
+					</form>
+				</div>
+			</Card.Content>
+		</Card.Root>
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>Start over</Card.Title>
+				<Card.Description
+					>Reset layouts and settings without losing feeds. This cannot be undone.</Card.Description
+				>
 			</Card.Header>
 			<Card.Content>
 				<div class="flex flex-col gap-3 py-2">
@@ -370,13 +542,14 @@
 							};
 						}}
 					>
-						<Button variant="outline" size="sm" type="submit" disabled={busyReset}>
+						<Button variant="destructive" size="sm" type="submit" disabled={busyReset}>
 							Reset layouts & settings
 						</Button>
 						<p class="mt-1 text-xs text-muted-foreground">
 							Clears per-feed layouts and all settings on this page. Feeds and tags stay.
 						</p>
 					</form>
+					<Separator />
 					<form
 						method="POST"
 						action="?/resetSettings"

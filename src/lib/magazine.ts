@@ -7,11 +7,14 @@ export type StoryEmphasis = 'visual' | 'featured' | 'standard' | 'brief';
 /**
  * Nested layout pattern for a topic desk. Chosen from the desk's own
  * content — never at random — so each desk reads differently:
- * - `spotlight`: one image-led story features large, the rest stack beside it.
- * - `symmetric`: a balanced grid (stories are visually even).
+ * - `spotlight`: one image-led story features large (8+4 lead row), the rest flow below.
+ * - `symmetric`: a balanced grid (stories are visually even, rhythm staggered per desk).
  * - `headlines`: text-led stack for desks with no usable imagery.
  */
 export type DeskPattern = 'spotlight' | 'symmetric' | 'headlines';
+
+/** Hero shape at the top of the front page, picked from image signals. */
+export type HeroVariant = 'cover' | 'split' | 'trio';
 
 /** One journalist-style desk: the stories filed under a single AI topic. */
 export interface TopicDesk {
@@ -29,12 +32,14 @@ export interface TopicDesk {
 
 /**
  * A story's width inside a strict 12-column row. Only these static spans
- * exist (see `spanClass` in magazine-view): 12, 6, 4, 3.
+ * exist (see `spanClass` in magazine-view): 12, 8, 6, 4, 3.
  * Every row sums to exactly 12, so edges always align - never jagged.
- * Pairs are always an even 6+6: an uneven image/text pair balloons the
- * fixed-ratio thumb into a giant hero beside a squished card.
+ * Asymmetry comes from 8+4 (feature + companion) and 6+3+3 (lead + two
+ * briefs). Pairs default to an even 6+6 unless one story clearly
+ * outscores the other; the wide card then renders horizontally so its
+ * fixed-ratio thumb never balloons beside a squished card.
  */
-export type ColSpan = 12 | 6 | 4 | 3;
+export type ColSpan = 12 | 8 | 6 | 4 | 3;
 
 /** One story placed in a grid row with its column width. */
 export interface PlacedStory {
@@ -57,6 +62,8 @@ export type MagazineBlock = { kind: 'latest'; rows: GridRow[] } | { kind: 'desk'
 export interface MagazineSections {
 	lead: ArticleRow | null;
 	secondary: ArticleRow[];
+	/** Hero shape derived from lead + secondary image signals. */
+	hero: HeroVariant;
 	/** Latest stories that earned no topic desk, shown before the desks. */
 	latest: ArticleRow[];
 	/** Topic desks built from the AI tags on the remaining stories. */
@@ -123,7 +130,20 @@ export function pickDeskPattern(articles: ArticleRow[]): {
 	return { pattern: 'symmetric', spotlightId: null };
 }
 
-function toDesk(tag: TagRef, articles: ArticleRow[], gridSize: number): TopicDesk {
+/**
+ * Picks the hero shape from image signals only — deterministic:
+ * - `trio`: lead + both secondaries carry images (three-up hero row).
+ * - `split`: lead + one secondary carry images (asymmetric 8/4 hero).
+ * - `cover`: anything else (full-width horizontal feature + even pair below).
+ */
+export function pickHeroVariant(lead: ArticleRow, secondary: ArticleRow[]): HeroVariant {
+	const visuals = [lead, ...secondary].filter((a) => a.imageUrl).length;
+	if (secondary.length >= 2 && visuals >= 3) return 'trio';
+	if (lead.imageUrl && visuals >= 2) return 'split';
+	return 'cover';
+}
+
+function toDesk(tag: TagRef, articles: ArticleRow[], gridSize: number, offset: number): TopicDesk {
 	const { pattern, spotlightId } = pickDeskPattern(articles);
 	const ordered =
 		pattern === 'spotlight' && spotlightId != null
@@ -140,7 +160,7 @@ function toDesk(tag: TagRef, articles: ArticleRow[], gridSize: number): TopicDes
 	return {
 		tag,
 		articles: [...shown, ...more],
-		rows: layOutRows(shown),
+		rows: layOutRows(shown, { offset }),
 		more,
 		pattern,
 		spotlightId
@@ -149,30 +169,86 @@ function toDesk(tag: TagRef, articles: ArticleRow[], gridSize: number): TopicDes
 
 /**
  * Smart editorial rows. Deterministic, content-only - never random:
- * - Pairs always split evenly [6,6]. A [7,5] image/text pair looks broken:
- *   the wide card's fixed-ratio thumb balloons into a giant hero while the
- *   text card squishes beside it. Equal pairs keep both cards level.
- * - Image-led stories still earn prominence: a lone visual against text-only
- *   trios/quads flows into the trio/quad, and full-width [12] singles.
- * - Text-only flows in clean trios [4,4,4], quads [3,3,3,3], or an even
- *   [6,6] tail. Singles go full-width [12].
- * Every row sums to 12 so left/right edges align perfectly; uniform card
- * heights (h-full, fixed thumb ratio) keep baselines level - no masonry.
+ * - A clearly stronger visual/featured story earns asymmetry: 8+4 over a
+ *   weaker companion, or 6+3+3 leading two briefs.
+ * - Even pairs stay 6+6; even trios stay 4+4+4; all-brief quads go 3x4.
+ * - Singles go full-width 12.
+ * Every row sums to 12 so left/right edges align perfectly; the view
+ * renders 8-spans horizontally so wide thumbs never balloon. `offset`
+ * (desk index) staggers the default trio/pair choice so adjacent even
+ * desks don't open with the same shape.
  */
-export function layOutRows(articles: ArticleRow[]): GridRow[] {
+export function layOutRows(articles: ArticleRow[], opts: { offset?: number } = {}): GridRow[] {
 	const rows: GridRow[] = [];
+	const offset = opts.offset ?? 0;
 	let i = 0;
 	while (i < articles.length) {
 		const remaining = articles.length - i;
+		const slice4 = articles.slice(i, i + 4);
 		if (remaining === 1) {
 			rows.push({ stories: [{ article: articles[i], span: 12 }] });
 			i += 1;
-		} else if (remaining === 4 && !articles.slice(i, i + 4).some((a) => a.imageUrl)) {
+			continue;
+		}
+		if (remaining === 4 && !slice4.some((a) => a.imageUrl)) {
 			rows.push({
-				stories: articles.slice(i, i + 4).map((a) => ({ article: a, span: 3 as ColSpan }))
+				stories: slice4.map((a) => ({ article: a, span: 3 as ColSpan }))
 			});
 			i += 4;
-		} else if (remaining === 2 || remaining % 3 === 2) {
+			continue;
+		}
+		if (remaining >= 3) {
+			const [a, b, c] = [articles[i], articles[i + 1], articles[i + 2]];
+			const leader = scoreStory(a) - Math.max(scoreStory(b), scoreStory(c));
+			const briefs = [b, c].filter((s) => getStoryEmphasis(s) === 'brief').length;
+			if (a.imageUrl && leader >= 3 && briefs >= 1) {
+				rows.push({
+					stories: [
+						{ article: a, span: 6 },
+						{ article: b, span: 3 as ColSpan },
+						{ article: c, span: 3 as ColSpan }
+					]
+				});
+				i += 3;
+				continue;
+			}
+		}
+		if (remaining >= 2) {
+			const [a, b] = [articles[i], articles[i + 1]];
+			const gap = scoreStory(a) - scoreStory(b);
+			const strongLead =
+				(a.imageUrl || getStoryEmphasis(a) === 'featured') &&
+				getStoryEmphasis(b) !== 'visual' &&
+				getStoryEmphasis(b) !== 'featured' &&
+				gap >= 2;
+			if (strongLead) {
+				// Wide card renders horizontally in the view, so the thumb
+				// stays level instead of ballooning beside the narrow card.
+				rows.push({
+					stories: [
+						{ article: a, span: 8 as ColSpan },
+						{ article: b, span: 4 }
+					]
+				});
+				i += 2;
+				continue;
+			}
+		}
+		if (remaining === 4 && (rows.length + offset) % 2 === 0) {
+			// Stagger even desks: open 8+4 instead of 6+6 so neighbours differ.
+			const [a, b] = [articles[i], articles[i + 1]];
+			if (a.imageUrl || b.imageUrl) {
+				rows.push({
+					stories: [
+						{ article: a, span: 8 as ColSpan },
+						{ article: b, span: 4 }
+					]
+				});
+				i += 2;
+				continue;
+			}
+		}
+		if (remaining === 2 || remaining % 3 === 2) {
 			// Pairs stay even - clean alignment beats clever asymmetry.
 			rows.push({
 				stories: [
@@ -237,7 +313,7 @@ export function buildTopicDesks(
 	}
 
 	return candidates
-		.map((r) => toDesk(r.tag, buckets.get(r.tag.id) ?? [], maxStories))
+		.map((r, index) => toDesk(r.tag, buckets.get(r.tag.id) ?? [], maxStories, index))
 		.filter((d) => d.articles.length >= minStories);
 }
 
@@ -268,6 +344,7 @@ export function buildMagazineSections(articles: ArticleRow[]): MagazineSections 
 	const empty: MagazineSections = {
 		lead: null,
 		secondary: [],
+		hero: 'cover',
 		latest: [],
 		desks: [],
 		rest: [],
@@ -288,7 +365,15 @@ export function buildMagazineSections(articles: ArticleRow[]): MagazineSections 
 	const leftover = deskPool.filter((a) => !inDesk.has(a.id));
 	const latest = leftover.slice(0, MAX_LATEST);
 	const rest = leftover.slice(MAX_LATEST, MAX_LATEST + MAX_MORE);
-	return { lead, secondary, latest, desks, rest, blocks: buildBlocks(desks, latest) };
+	return {
+		lead,
+		secondary,
+		hero: pickHeroVariant(lead, secondary),
+		latest,
+		desks,
+		rest,
+		blocks: buildBlocks(desks, latest)
+	};
 }
 
 /**

@@ -5,7 +5,8 @@ import {
 	buildMagazineSections,
 	buildTopicDesks,
 	getStoryEmphasis,
-	pickDeskPattern
+	pickDeskPattern,
+	pickHeroVariant
 } from './magazine';
 import type { ArticleRow } from './article';
 
@@ -35,6 +36,7 @@ describe('buildMagazineSections', () => {
 		expect(buildMagazineSections([])).toEqual({
 			lead: null,
 			secondary: [],
+			hero: 'cover',
 			latest: [],
 			desks: [],
 			rest: [],
@@ -249,13 +251,16 @@ describe('smart nested dynamics', () => {
 		expect(buildBlocks(sections.desks, sections.latest)).toEqual(sections.blocks);
 	});
 
-	it('lays clean 12-col rows: pairs stay even, no giant-image/squished-text split', () => {
-		// Regression: [7,5] image/text pairs rendered the image card as a giant
-		// hero (fixed-ratio thumb balloons) while the text card squished.
+	it('lays bento rows: strong visual leads earn 8+4 or 6+3+3, even pairs stay 6+6', () => {
+		// Strong visual over a plain text companion earns the 8+4 feature row.
 		const pair = [row({ id: 1, imageUrl: 'https://example.com/a.jpg' }), row({ id: 2 })];
-		expect(layOutRows(pair).map((r) => r.stories.map((st) => st.span))).toEqual([[6, 6]]);
+		expect(layOutRows(pair).map((r) => r.stories.map((st) => st.span))).toEqual([[8, 4]]);
 
-		// Image-led story flows into a clean trio alongside text stories.
+		// Even text pairs stay level at 6+6.
+		const evenPair = [row({ id: 1, excerpt: 'x' }), row({ id: 2, excerpt: 'y' })];
+		expect(layOutRows(evenPair).map((r) => r.stories.map((st) => st.span))).toEqual([[6, 6]]);
+
+		// Visual leading two briefs flows into a 6+3+3 bento row.
 		const arts = [
 			row({ id: 1, imageUrl: 'https://example.com/a.jpg' }),
 			row({ id: 2 }),
@@ -267,8 +272,36 @@ describe('smart nested dynamics', () => {
 		for (const r of rows) {
 			expect(r.stories.reduce((n, st) => n + st.span, 0)).toBe(12);
 		}
-		expect(rows.map((r) => r.stories.map((st) => st.span))).toEqual([[4, 4, 4], [12]]);
+		expect(rows.map((r) => r.stories.map((st) => st.span))).toEqual([[6, 3, 3], [12]]);
 		// Same input, same rows - deterministic, not random.
 		expect(layOutRows(arts)).toEqual(rows);
+	});
+
+	it('picks the hero shape from image signals only', () => {
+		const visual = (id: number) => row({ id, imageUrl: `https://example.com/${id}.jpg` });
+		expect(pickHeroVariant(visual(1), [visual(2), visual(3)])).toBe('trio');
+		expect(pickHeroVariant(visual(1), [visual(2), row({ id: 3 })])).toBe('split');
+		expect(pickHeroVariant(visual(1), [row({ id: 2 }), row({ id: 3 })])).toBe('cover');
+		expect(pickHeroVariant(row({ id: 1 }), [row({ id: 2 }), row({ id: 3 })])).toBe('cover');
+	});
+
+	it('staggers even desks by offset so neighbours open differently', () => {
+		const arts = [
+			row({ id: 1, excerpt: 'a', imageUrl: 'https://example.com/a.jpg' }),
+			row({ id: 2, excerpt: 'b' }),
+			row({ id: 3, excerpt: 'c' }),
+			row({ id: 4, excerpt: 'd' })
+		];
+		const first = layOutRows(arts, { offset: 0 }).map((r) => r.stories.map((st) => st.span));
+		const second = layOutRows(arts, { offset: 1 }).map((r) => r.stories.map((st) => st.span));
+		for (const rows of [first, second]) {
+			for (const spans of rows) {
+				expect(spans.reduce((n, s) => n + s, 0)).toBe(12);
+			}
+		}
+		// Deterministic per offset.
+		expect(layOutRows(arts, { offset: 0 }).map((r) => r.stories.map((st) => st.span))).toEqual(
+			first
+		);
 	});
 });

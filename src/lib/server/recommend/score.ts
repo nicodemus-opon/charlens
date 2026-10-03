@@ -46,6 +46,7 @@ export interface RecommendCandidate {
 	hasImage?: boolean;
 	excerptLength?: number;
 	titleLength?: number;
+	title?: string;
 }
 
 export interface ScoreOptions {
@@ -60,6 +61,10 @@ export interface ScoreOptions {
 	keywordBoost?: number;
 	/** Precomputed 0..1 short-term (session) tag affinity for this candidate. */
 	sessionBoost?: number;
+	/** Precomputed 0..1 short-term semantic match (candidate vs session
+	 *  centroid). Blended with the tag session signal via max so either
+	 *  "reading about this now" path can lift the story. */
+	sessionSemantic?: number;
 	/** Precomputed 0..1 topic-burst (trending velocity) boost for this candidate. */
 	trendingBoost?: number;
 }
@@ -420,15 +425,44 @@ export function qualityScore(c: {
 	hasImage?: boolean;
 	excerptLength?: number;
 	titleLength?: number;
+	title?: string;
 }): number {
 	let q = 0.5;
 	if (c.hasImage) q += 0.2;
 	const excerpt = c.excerptLength ?? 0;
 	if (excerpt >= 200) q += 0.15;
 	else if (excerpt < 40) q -= 0.1;
-	const title = c.titleLength ?? 0;
-	if (title >= 20 && title <= 120) q += 0.1;
+	const titleLen = c.titleLength ?? c.title?.length ?? 0;
+	if (titleLen >= 20 && titleLen <= 120) q += 0.1;
+	else if (titleLen > 0 && titleLen < 15) q -= 0.1;
+	const title = c.title ?? '';
+	if (title) {
+		// Clickbait / low-signal shapes: all-caps shouting, heavy punctuation,
+		// or trailing ellipsis-tease add nothing — demote slightly.
+		if (title.length >= 12 && title === title.toUpperCase() && /[A-Z]/.test(title)) q -= 0.1;
+		const bangs = (title.match(/[!?]/g) ?? []).length;
+		if (bangs >= 3) q -= 0.1;
+		else if (bangs >= 2) q -= 0.05;
+		if (/\.\.\.\s*$/.test(title) || /:\s*$/.test(title)) q -= 0.05;
+	}
 	return Math.max(0, Math.min(1, q));
+}
+
+/**
+ * Feed-volume normalization (pure): a feed with many recent items shouldn't
+ * auto-win over a quiet feed the user loves equally. Divides each affinity
+ * by log2(1 + windowCount). Returns a NEW map — never mutates the input.
+ */
+export function normalizedFeedScores(
+	feedScores: Map<number, number>,
+	feedVolume: Map<number, number>
+): Map<number, number> {
+	const out = new Map<number, number>();
+	for (const [fid, score] of feedScores) {
+		const count = feedVolume.get(fid) ?? 0;
+		out.set(fid, count > 1 ? score / Math.log2(1 + count) : score);
+	}
+	return out;
 }
 
 /**
@@ -527,7 +561,13 @@ export function scoreCandidate(
 		else if (keyword01 > 0) reasons.push('Partial keyword match');
 		if (fresh > 0.85) reasons.push('Fresh story');
 	} else {
-		const session = Math.max(0, Math.min(1, opts.sessionBoost ?? 0));
+		// Either short-term path (tag taste or semantic "reading this now")
+		// can lift the story; max keeps one strong signal sufficient.
+		const session = Math.max(
+			0,
+			Math.min(1, opts.sessionBoost ?? 0),
+			Math.min(1, opts.sessionSemantic ?? 0)
+		);
 		const trending = Math.max(0, Math.min(1, opts.trendingBoost ?? 0));
 		const neg = negAffinity({ feedId: c.feedId, tags: allTags }, aff, idfOf);
 		components.semantic = RECOMMEND_WEIGHTS.semantic * semantic;

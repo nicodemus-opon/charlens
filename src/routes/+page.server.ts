@@ -20,18 +20,42 @@ import {
 	listTags,
 	logArticleEvent,
 	markRead,
+	markScopeRead,
 	moveFeed,
 	populateFeed,
 	refreshStaleFeeds,
 	renameCollection,
 	renameTag,
 	setArticleTags,
+	toggleRead,
 	toggleSaved,
 	unsubscribe,
 	type ArticleFilter
 } from '$lib/server/rss/refresh';
 
 const FILTERS: ArticleFilter[] = ['today', 'saved', 'all', 'recommended'];
+
+/**
+ * Redirect back to the page that posted (not the `?/action` URL): enhanced
+ * forms POST to the action URL, so `url` carries `?/toggleSaved`-style params
+ * and redirecting to it mangles the address bar and drops the filter. The
+ * Referer is the rendered page in both fetch and classic posts; fall back to
+ * the action URL path when it's missing or cross-origin.
+ */
+function redirectBack(url: URL, request: Request): never {
+	const referer = request.headers.get('referer');
+	if (referer) {
+		try {
+			const back = new URL(referer);
+			if (back.origin === url.origin) {
+				throw redirect(303, `${back.pathname}${back.search}`);
+			}
+		} catch (e) {
+			if (e && typeof e === 'object' && 'status' in e) throw e;
+		}
+	}
+	throw redirect(303, `${url.pathname}?${url.searchParams.toString()}`);
+}
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	const user = requireUser(locals);
@@ -213,7 +237,52 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const id = Number(form.get('id'));
 		if (Number.isFinite(id)) await markRead(user.id, id, true);
-		throw redirect(303, `${url.pathname}?${url.searchParams.toString()}`);
+		redirectBack(url, request);
+	},
+	markAllRead: async ({ url, locals }) => {
+		const user = requireUser(locals);
+		// Scope mirrors `load`: the bulk mark covers exactly the rendered list
+		// (recommended/query ranking resolved server-side — see markScopeRead).
+		const rawFilter = url.searchParams.get('filter') ?? 'today';
+		const filter: ArticleFilter = FILTERS.includes(rawFilter as ArticleFilter)
+			? (rawFilter as ArticleFilter)
+			: 'today';
+		const feedParam = url.searchParams.get('feed');
+		const feedId = feedParam ? Number(feedParam) : undefined;
+		const collectionParam = url.searchParams.get('collection');
+		const collectionId = collectionParam ? Number(collectionParam) : undefined;
+		const viewParam = url.searchParams.get('view');
+		const viewId = viewParam ? Number(viewParam) : undefined;
+		const tagParam = url.searchParams.get('tag');
+		const tagId = tagParam ? Number(tagParam) : undefined;
+		const query = url.searchParams.get('q') ?? '';
+		try {
+			const smart = Number.isFinite(viewId) ? await getSmartRules(user.id, viewId!) : null;
+			const { marked } = await markScopeRead(user.id, {
+				feedId: Number.isFinite(feedId) ? feedId : undefined,
+				collectionId: Number.isFinite(collectionId) ? collectionId : undefined,
+				tagId: Number.isFinite(tagId) ? tagId : undefined,
+				smart: smart ?? undefined,
+				filter,
+				query,
+				limit: 100
+			});
+			return { marked };
+		} catch (e) {
+			console.error('markAllRead failed', e);
+			return fail(500, { message: 'Could not mark all as read' });
+		}
+	},
+	toggleRead: async ({ request, locals }) => {
+		const user = requireUser(locals);
+		const form = await request.formData();
+		const id = Number(form.get('id'));
+		if (!Number.isFinite(id)) return fail(400, { message: 'Invalid article' });
+		// Return (don't redirect): the keyboard caller reads the new state to
+		// decide whether to move selection — the loader auto-marks whatever is
+		// displayed, so staying put would instantly undo an unread toggle.
+		const isRead = await toggleRead(user.id, id);
+		return { isRead };
 	},
 	createCollection: async ({ request, locals }) => {
 		const user = requireUser(locals);
@@ -324,7 +393,28 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const id = Number(form.get('id'));
 		if (Number.isFinite(id)) await toggleSaved(user.id, id);
-		throw redirect(303, `${url.pathname}?${url.searchParams.toString()}`);
+		redirectBack(url, request);
+	},
+	feedback: async ({ request, locals }) => {
+		const user = requireUser(locals);
+		const form = await request.formData();
+		const id = Number(form.get('id'));
+		const kind = String(form.get('kind') ?? '');
+		if (!Number.isFinite(id)) return fail(400, { message: 'Invalid article' });
+		if (kind !== 'dismiss' && kind !== 'mute_feed' && kind !== 'mute_topic') {
+			return fail(400, { message: 'Invalid feedback' });
+		}
+		try {
+			// logArticleEvent persists the event + structured user_feedback row
+			// (hard filters + negative affinity) and refreshes the interest
+			// model in the background. Returns ok (no redirect) so the caller
+			// revalidates in place — the list drops the dismissed story.
+			await logArticleEvent(user.id, id, kind);
+		} catch (e) {
+			console.error('feedback failed', e);
+			return fail(500, { message: 'Could not save feedback' });
+		}
+		return { ok: true };
 	},
 	setArticleTags: async ({ request, url, locals }) => {
 		const user = requireUser(locals);

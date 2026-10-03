@@ -9,7 +9,7 @@ import {
 	isFeedStale,
 	upsertItems
 } from '$lib/server/rss/refresh';
-import { fetchFeed } from '$lib/server/rss/parser';
+import { fetchFeed, isTransientFeedError } from '$lib/server/rss/parser';
 import { backfillTruncatedArticles, isFulltextAutoEnabled } from '$lib/server/rss/fulltext';
 import {
 	backfillMissingVectors,
@@ -77,7 +77,21 @@ async function refreshSingleFeed(
 		if (healed) await backfillNewFeedItems(f.id);
 		return { added: (after[0]?.n ?? 0) - (before[0]?.n ?? 0), failed: false };
 	} catch (e) {
-		console.error(`scheduled refresh failed for ${f.url}`, e);
+		const msg = e instanceof Error ? e.message : String(e);
+		// Stamp lastFetchedAt even on failure so a dead feed backs off to the
+		// normal 15-min cadence instead of retrying on every page-load tick.
+		// Permanent failures (404, not-a-feed) log a single warn line without
+		// a stack trace; transient errors keep the full error for diagnosis.
+		try {
+			await db.update(feed).set({ lastFetchedAt: new Date() }).where(eq(feed.id, f.id));
+		} catch {
+			// best-effort: the refresh error below is what matters
+		}
+		if (isTransientFeedError(e)) {
+			console.error(`scheduled refresh failed for ${f.url}`, e);
+		} else {
+			console.warn(`scheduled refresh skipped for ${f.url}: ${msg}`);
+		}
 		return { added: 0, failed: true };
 	}
 }

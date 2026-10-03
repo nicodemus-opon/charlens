@@ -67,6 +67,7 @@
 		type="search"
 		{placeholder}
 		aria-label={placeholder}
+		data-search-input
 		bind:ref={inputEl}
 		bind:value={query}
 		oninput={onSearchInput}

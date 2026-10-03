@@ -21,6 +21,7 @@
 	} from '@lucide/svelte';
 	import { Toggle } from '$lib/components/ui/toggle/index.js';
 	import ArticleImage from '$lib/components/article-image.svelte';
+	import ArticleFeedbackMenu from '$lib/components/article-feedback-menu.svelte';
 	import type { TagRef } from '$lib/tags';
 	import EditTagsDialog from './edit-tags-dialog.svelte';
 
@@ -51,7 +52,8 @@
 		readerWidth = 'narrow',
 		openLinksNewTab = true,
 		autoLoadFullText = false,
-		telemetryEnabled = true
+		telemetryEnabled = true,
+		showFeedback = false
 	}: {
 		article: FullArticle | null;
 		/** True when the list is hidden (focus/reader-only view). */
@@ -69,6 +71,8 @@
 		openLinksNewTab?: boolean;
 		autoLoadFullText?: boolean;
 		telemetryEnabled?: boolean;
+		/** True on Recommended: header gets the "less like this" menu. */
+		showFeedback?: boolean;
 	} = $props();
 
 	const linkTarget = $derived(openLinksNewTab ? '_blank' : undefined);
@@ -272,6 +276,14 @@
 						<CheckCheck />
 					</Button>
 				</form>
+				{#if showFeedback}
+					<ArticleFeedbackMenu
+						articleId={article.id}
+						isSaved={article.isSaved}
+						isRead={article.isRead}
+						hoverOnly={false}
+					/>
+				{/if}
 				<Button
 					variant="ghost"
 					size="icon-sm"

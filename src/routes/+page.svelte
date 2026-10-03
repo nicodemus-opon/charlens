@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { enhance } from '$app/forms';
-	import { afterNavigate, goto } from '$app/navigation';
+	import { afterNavigate, goto, invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Resizable from '$lib/components/ui/resizable/index.js';
@@ -16,7 +16,8 @@
 	import MobileBottomNav from '$lib/components/mobile-bottom-nav.svelte';
 	import ReaderPane from '$lib/components/reader-pane.svelte';
 	import SearchBox from '$lib/components/search-box.svelte';
-	import { RefreshCw, Shuffle } from '@lucide/svelte';
+	import { shortcutsState } from '$lib/shortcuts.svelte.js';
+	import { RefreshCw, Shuffle, CheckCheck } from '@lucide/svelte';
 
 	const VIEW_BASE = 'charlens:article-view';
 	const PANEL_BASE = 'charlens:article-panel-open';
@@ -142,6 +143,10 @@
 	let lastScope = $state(bootScope);
 	// Refresh-button feedback: spins the icon for the round trip only.
 	let refreshing = $state(false);
+	// Mark-all-read feedback: disables the button for the round trip only.
+	let markingAll = $state(false);
+	// Keyboard bulk triage submits this form; it only renders with unread stories.
+	let markAllForm: HTMLFormElement | null = $state(null);
 	// False during SSR and the first client paint: the view-dependent lists
 	// render a neutral skeleton until the saved prefs are confirmed, so the
 	// page never flashes the default layout before swapping to the saved one.
@@ -181,10 +186,142 @@
 		focusMode = readStoredFocus();
 		prefsRestored = true;
 
+		/** Story the single-key actions act on — explicit selection, else the preview. */
+		function activeArticleId(): number | null {
+			if (articleParam) {
+				const id = Number(articleParam);
+				if (Number.isFinite(id)) return id;
+			}
+			return data.selected?.id ?? null;
+		}
+
+		function openArticle(id: number) {
+			const url = new URL($page.url);
+			url.searchParams.set('article', String(id));
+			goto(`${url.pathname}?${url.searchParams.toString()}`, { keepFocus: true });
+		}
+
+		/** Single-article keyboard actions post the matching form action, then refresh. */
+		async function postArticleAction(action: 'toggleSaved', id: number) {
+			const form = new FormData();
+			form.set('id', String(id));
+			try {
+				await fetch(`?/${action}`, { method: 'POST', body: form });
+				await invalidateAll();
+			} catch (err) {
+				console.error(`${action} failed`, err);
+			}
+		}
+
+		/**
+		 * Keyboard `m`: toggle read state. The action payload is
+		 * devalue-encoded, so the new state is derived from the rendered row
+		 * instead of the response. When the story ends up unread the selection
+		 * advances — the loader auto-marks whatever is displayed, so staying
+		 * put would instantly undo the toggle.
+		 */
+		async function toggleActiveRead(id: number) {
+			const was = data.articles.find((a) => a.id === id)?.isRead ?? data.selected?.isRead ?? true;
+			const form = new FormData();
+			form.set('id', String(id));
+			try {
+				await fetch('?/toggleRead', { method: 'POST', body: form });
+			} catch (err) {
+				console.error('toggleRead failed', err);
+				await invalidateAll();
+				return;
+			}
+			if (was) {
+				const idx = data.articles.findIndex((a) => a.id === id);
+				const next = idx >= 0 ? data.articles[idx + 1] : undefined;
+				if (next) {
+					openArticle(next.id);
+					return;
+				}
+				if (hasArticleParam) {
+					const url = new URL($page.url);
+					url.searchParams.delete('article');
+					await goto(`${url.pathname}?${url.searchParams.toString()}`, { keepFocus: true });
+					return;
+				}
+			}
+			await invalidateAll();
+		}
+
 		function onKeyDown(e: KeyboardEvent) {
 			if (e.key === 'Escape' && hasArticleParam) {
 				e.preventDefault();
 				goBack();
+				return;
+			}
+			const target = e.target as HTMLElement | null;
+			if (
+				target &&
+				(target.tagName === 'INPUT' ||
+					target.tagName === 'TEXTAREA' ||
+					target.tagName === 'SELECT' ||
+					target.isContentEditable)
+			) {
+				return;
+			}
+			if (e.metaKey || e.ctrlKey || e.altKey) return;
+			// The command palette and dialogs own the keyboard while open.
+			if (document.querySelector('[role="dialog"]')) return;
+			const list = data.articles;
+			const activeId = activeArticleId();
+			const activeIdx = activeId != null ? list.findIndex((a) => a.id === activeId) : -1;
+			switch (e.key) {
+				case 'j': {
+					e.preventDefault();
+					const next = list[Math.min(activeIdx + 1, list.length - 1)];
+					if (next) openArticle(next.id);
+					break;
+				}
+				case 'k': {
+					e.preventDefault();
+					const prev = list[Math.max(activeIdx - 1, 0)];
+					if (prev) openArticle(prev.id);
+					break;
+				}
+				case 'o': {
+					if (!hasArticleParam && data.selected) {
+						e.preventDefault();
+						openArticle(data.selected.id);
+					}
+					break;
+				}
+				case 's': {
+					if (activeId != null) {
+						e.preventDefault();
+						void postArticleAction('toggleSaved', activeId);
+					}
+					break;
+				}
+				case 'm': {
+					if (activeId != null) {
+						e.preventDefault();
+						void toggleActiveRead(activeId);
+					}
+					break;
+				}
+				case 'A': {
+					// Shift+A — e.key reports the shifted 'A'.
+					if (e.shiftKey) {
+						e.preventDefault();
+						markAllForm?.requestSubmit();
+					}
+					break;
+				}
+				case '/': {
+					e.preventDefault();
+					document.querySelector<HTMLInputElement>('[data-search-input]')?.focus();
+					break;
+				}
+				case '?': {
+					e.preventDefault();
+					shortcutsState.open = true;
+					break;
+				}
 			}
 		}
 		window.addEventListener('keydown', onKeyDown);
@@ -472,6 +609,31 @@
 							<Shuffle />
 						</Button>
 					{/if}
+					{#if unreadCount > 0}
+						<form
+							method="POST"
+							action="/?/markAllRead"
+							bind:this={markAllForm}
+							use:enhance={() => {
+								markingAll = true;
+								return async ({ update }) => {
+									await update();
+									markingAll = false;
+								};
+							}}
+						>
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								type="submit"
+								disabled={markingAll}
+								aria-label={`Mark all ${unreadCount} as read`}
+								title="Mark all as read (Shift+A)"
+							>
+								<CheckCheck />
+							</Button>
+						</form>
+					{/if}
 					<form
 						method="POST"
 						action="/?/refresh"
@@ -501,6 +663,7 @@
 					{showExcerpts}
 					showReadMinutes={showMinutes}
 					density={readerDensity}
+					showFeedback={isRecommended}
 					onSelect={() => {
 						if (focusMode) panelOpen = false;
 					}}
@@ -529,6 +692,7 @@
 					{openLinksNewTab}
 					{autoLoadFullText}
 					{telemetryEnabled}
+					showFeedback={isRecommended}
 					tagHref={tagFilterHref}
 					onTagClick={() => (tagListRequested = true)}
 					onBack={goBack}
@@ -545,6 +709,7 @@
 					{showExcerpts}
 					showReadMinutes={showMinutes}
 					density={readerDensity}
+					showFeedback={isRecommended}
 					onExpand={() => (panelOpen = true)}
 					onSelect={() => {
 						if (!focusMode) panelOpen = true;
