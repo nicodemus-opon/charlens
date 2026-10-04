@@ -215,7 +215,14 @@
 	});
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col bg-background">
+<div
+	class="flex min-h-0 flex-1 flex-col overflow-y-auto bg-background"
+	role="region"
+	aria-label="Article"
+	bind:this={scrollEl}
+	ontouchstart={onTouchStart}
+	ontouchend={onTouchEnd}
+>
 	{#if !article}
 		<div class="flex flex-1 items-center justify-center p-8">
 			<Empty.Root>
@@ -227,7 +234,9 @@
 			</Empty.Root>
 		</div>
 	{:else}
-		<div class="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
+		<div
+			class="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur"
+		>
 			<div class="flex min-w-0 flex-1 items-center gap-1">
 				{#if showBack}
 					<Button
@@ -242,7 +251,7 @@
 						<ChevronLeft />
 					</Button>
 				{/if}
-				<span class="max-w-full min-w-0 truncate text-sm text-muted-foreground"
+				<span class="max-w-full min-w-0 truncate text-sm text-muted-foreground max-sm:hidden"
 					>{article.feedTitle}</span
 				>
 				{#if article.author}
@@ -312,32 +321,25 @@
 		<form method="POST" action="/?/markRead" use:enhance class="hidden" bind:this={readForm}>
 			<input type="hidden" name="id" value={article.id} />
 		</form>
-		<div
-			class="min-h-0 flex-1 overflow-y-auto"
-			role="region"
-			aria-label="Article"
-			bind:this={scrollEl}
-			ontouchstart={onTouchStart}
-			ontouchend={onTouchEnd}
-		>
+		<div class="min-h-0 flex-1">
 			{#key article.id}
 				<div
 					in:fly={{ y: reduceMotion ? 0 : 8, duration: reduceMotion ? 0 : 180, easing: cubicOut }}
 				>
 					<article
 						class={readerWidth === 'wide'
-							? 'mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-12 sm:px-8 sm:pt-10 md:px-10'
-							: 'mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-6 pb-12 sm:px-8 sm:pt-10 md:px-10'}
+							? 'mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-24 sm:px-8 sm:pt-10 sm:pb-12 md:px-10'
+							: 'mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-6 pb-24 sm:px-8 sm:pt-10 sm:pb-12 md:px-10'}
 					>
-						<h1 class="text-2xl font-bold text-balance break-words text-foreground sm:text-3xl">
+						<h1 class="text-3xl font-bold text-balance break-words text-foreground">
 							{article.title}
 						</h1>
 						<p class="text-sm text-muted-foreground">
 							{article.feedTitle}{#if article.author}
-								by {article.author}{/if} · {prettyDate(article.publishedAt)}
+								by {article.author}{/if}, {prettyDate(article.publishedAt)}
 						</p>
 						{#if (article.tags ?? []).length > 0}
-							<div class="flex flex-wrap gap-1.5">
+							<div class="flex flex-wrap gap-1.5 max-sm:hidden">
 								{#each article.tags ?? [] as t (t.id)}
 									{#if tagHref}
 										<Badge
@@ -357,12 +359,12 @@
 								{/each}
 							</div>
 						{/if}
-						<Separator />
+						<Separator class="max-sm:hidden" />
 						<ArticleImage
 							seed={{ id: article.id, feedTitle: article.feedTitle, title: article.title }}
 							src={article.imageUrl}
 							alt={article.title}
-							class="aspect-video w-full rounded-xl"
+							class="aspect-video w-full rounded-none sm:rounded-xl"
 						/>
 						{#if article.contentHtml}
 							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
@@ -398,7 +400,7 @@
 									<p class="text-sm text-destructive">{fulltextError}</p>
 								{:else}
 									<p class="text-xs text-muted-foreground">
-										This feed only ships an excerpt — fetch the full article from the original site.
+										This feed only ships an excerpt. Fetch the full article from the original site.
 									</p>
 								{/if}
 							</div>
@@ -415,7 +417,7 @@
 		<!-- Thumb-reach toolbar (phones): icon-only primary actions, safe-area
 			padded. Desktop keeps its top-bar icon row. -->
 		<div
-			class="flex shrink-0 items-stretch gap-1 border-t border-border bg-background px-2 pt-2 pb-safe sm:hidden"
+			class="sticky bottom-0 z-10 flex shrink-0 items-stretch gap-1 border-t border-border bg-background/80 px-2 pt-2 pb-safe backdrop-blur sm:hidden"
 			role="toolbar"
 			aria-label="Article actions"
 		>

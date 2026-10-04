@@ -38,18 +38,94 @@ export function excerptFrom(html: string | null | undefined, fallback = ''): str
 	return text.replace(/\s+/g, ' ').trim().slice(0, 220);
 }
 
+/** Decode HTML entities that leak into feed `<img src>` values (`&#038;`, `&amp;`). */
+function decodeAttrEntities(s: string): string {
+	return s
+		.replace(/&amp;/gi, '&')
+		.replace(/&quot;/gi, '"')
+		.replace(/&#x([0-9a-f]+);/gi, (_, h: string) => String.fromCharCode(parseInt(h, 16)))
+		.replace(/&#(\d+);/g, (_, n: string) => String.fromCharCode(Number(n)))
+		.replace(/&lt;/gi, '<')
+		.replace(/&gt;/gi, '>');
+}
+
+/**
+ * Pull an http(s) url out of rss-parser media shapes: bare strings,
+ * `{ $: { url } }` attribute bags, or arrays of either. Attachments that
+ * declare a non-image type/medium (e.g. YouTube's flash `media:content`)
+ * are skipped.
+ */
+function mediaUrl(value: unknown): string | null {
+	if (typeof value === 'string') return value.startsWith('http') ? value : null;
+	if (Array.isArray(value)) {
+		for (const v of value) {
+			const u = mediaUrl(v);
+			if (u) return u;
+		}
+		return null;
+	}
+	if (value && typeof value === 'object') {
+		const o = value as Record<string, unknown>;
+		const dollar = o['$'];
+		const attrs: Record<string, unknown> = {
+			...(typeof dollar === 'object' && dollar !== null
+				? (dollar as Record<string, unknown>)
+				: null),
+			...o
+		};
+		const medium = attrs['medium'];
+		if (typeof medium === 'string' && medium !== '' && medium !== 'image') return null;
+		const type = attrs['type'];
+		if (typeof type === 'string' && type !== '' && !type.startsWith('image/')) return null;
+		const url = attrs['url'];
+		if (typeof url === 'string' && url.startsWith('http')) return url;
+	}
+	return null;
+}
+
 export function pickImage(item: {
-	enclosure?: { url?: string };
+	enclosure?: { url?: string } | { url?: string }[];
+	mediaContent?: unknown;
+	mediaGroup?: unknown;
+	mediaThumbnail?: unknown;
 	media?: unknown;
 	image?: unknown;
 	content?: string;
 	'content:encoded'?: string;
 }): string | null {
-	if (typeof item.enclosure?.url === 'string') return item.enclosure.url;
+	const enclosures = Array.isArray(item.enclosure) ? item.enclosure : [item.enclosure];
+	for (const e of enclosures) {
+		if (typeof e?.url === 'string' && e.url.startsWith('http')) return e.url;
+	}
+	// Media RSS (including YouTube's `media:group`): thumbnails first, then
+	// declared content; the group's flash-player `media:content` is skipped
+	// by the type guard in `mediaUrl`.
+	const group =
+		item.mediaGroup && typeof item.mediaGroup === 'object'
+			? (item.mediaGroup as Record<string, unknown>)
+			: null;
+	if (group) {
+		for (const key of ['media:thumbnail', 'thumbnail']) {
+			const u = mediaUrl(group[key]);
+			if (u) return decodeAttrEntities(u);
+		}
+	}
+	for (const m of [item.mediaThumbnail, item.mediaContent, item.media, item.image]) {
+		const u = mediaUrl(m);
+		if (u) return decodeAttrEntities(u);
+	}
+	if (group) {
+		const u = mediaUrl(group['media:content']);
+		if (u) return decodeAttrEntities(u);
+	}
 	const html = item['content:encoded'] ?? item.content;
 	if (typeof html === 'string') {
-		const m = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-		if (m?.[1] && m[1].startsWith('http')) return m[1];
+		const re = /<img[^>]+src=["']([^"']+)["']/gi;
+		let m: RegExpExecArray | null;
+		while ((m = re.exec(html)) !== null) {
+			const decoded = decodeAttrEntities(m[1]);
+			if (decoded.startsWith('http')) return decoded;
+		}
 	}
 	return null;
 }

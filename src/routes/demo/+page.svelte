@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-	<title>Demo · charlens</title>
+	<title>Demo charlens</title>
 </svelte:head>
 
 <a href={resolve('/login')}>login (better-auth)</a>

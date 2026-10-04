@@ -46,7 +46,7 @@
 		<Dialog.Header>
 			<Dialog.Title>New smart view</Dialog.Title>
 			<Dialog.Description>
-				Build a dynamic reading view from rules. It fills automatically as new stories arrive — no
+				Build a dynamic reading view from rules. It fills automatically as new stories arrive. No
 				feeds are moved.
 			</Dialog.Description>
 		</Dialog.Header>

@@ -17,7 +17,8 @@ export interface RadarCandidate {
 }
 
 const RADAR_CACHE_MS = 24 * 60 * 60 * 1000;
-const MAX_CANDIDATES = 5;
+const DEFAULT_MAX_CANDIDATES = 5;
+const ABSOLUTE_MAX_CANDIDATES = 20;
 
 let radarCache: { at: number; payload: unknown } | null = null;
 
@@ -181,6 +182,18 @@ export function resolveCandidateUrl(
 }
 
 /**
+ * Human display name for a radar candidate. Prefill values extracted from the
+ * pasted URL (e.g. a YouTube handle) beat the generic rule title ("Channel
+ * with user handle"). Pure (tests).
+ */
+export function radarDisplayName(c: Pick<RadarCandidate, 'title' | 'prefill'>): string {
+	const vals = Object.values(c.prefill ?? {})
+		.map((v) => v.trim())
+		.filter(Boolean);
+	return vals.length > 0 ? vals.join(' ') : c.title;
+}
+
+/**
  * Generic extraction: find the rule `source` pattern matching the pasted path
  * and map its values onto the `target` route params — by name when they agree
  * (`:id` → `:id`, the common case), by position otherwise.
@@ -217,8 +230,18 @@ export function extractPrefill(
  * `source` string/array whose host or path prefix matches the site URL.
  * When a `source` pattern strictly matches the pasted path, its values are
  * attached as `prefill` for the target params.
+ *
+ * When the pasted URL is a site root (`/`), strict matching alone hides most
+ * of the domain's routes (section rules like `/markets` never match `/`), so
+ * a second domain-listing pass collects every route under the matched domain
+ * keys — the user sees "all feeds for this site", not just the homepage rule.
+ * Deep pages keep strict matching only (never list unrelated routes).
  */
-export function matchRadarRules(rules: unknown, siteUrl: string): RadarCandidate[] {
+export function matchRadarRules(
+	rules: unknown,
+	siteUrl: string,
+	opts: { limit?: number } = {}
+): RadarCandidate[] {
 	let site: URL;
 	try {
 		const withProto = /^https?:\/\//i.test(siteUrl.trim())
@@ -228,8 +251,13 @@ export function matchRadarRules(rules: unknown, siteUrl: string): RadarCandidate
 	} catch {
 		return [];
 	}
+	const limit = Math.min(
+		Math.max(opts.limit ?? DEFAULT_MAX_CANDIDATES, 1),
+		ABSOLUTE_MAX_CANDIDATES
+	);
 	const host = site.hostname.toLowerCase().replace(/^www\./, '');
 	const path = site.pathname || '/';
+	const isRoot = path === '/' || path === '';
 	const base = getRsshubBase();
 	const out: RadarCandidate[] = [];
 	const seen = new Set<string>();
@@ -243,7 +271,7 @@ export function matchRadarRules(rules: unknown, siteUrl: string): RadarCandidate
 		// the pasted URL) lets the UI present them already filled in.
 		const needsParams = /:\w+/.test(t);
 		const key = t;
-		if (seen.has(key) || out.length >= MAX_CANDIDATES) return;
+		if (seen.has(key) || out.length >= limit) return;
 		seen.add(key);
 		out.push({
 			routePath: t,
@@ -280,7 +308,7 @@ export function matchRadarRules(rules: unknown, siteUrl: string): RadarCandidate
 	}
 
 	function walk(node: unknown, namespace: string) {
-		if (!node || out.length >= MAX_CANDIDATES) return;
+		if (!node || out.length >= limit) return;
 		if (Array.isArray(node)) {
 			for (const item of node) walk(item, namespace);
 			return;
@@ -301,6 +329,35 @@ export function matchRadarRules(rules: unknown, siteUrl: string): RadarCandidate
 		}
 	}
 
+	/**
+	 * Domain-listing pass for site roots: collect every route under the
+	 * matched domain regardless of `source` so pasting `bloomberg.com`
+	 * surfaces section routes too. Strict-match hits (with prefill) are kept
+	 * — `seen` dedupes. Never used for deep pages.
+	 */
+	function collectAll(node: unknown, namespace: string) {
+		if (!node || out.length >= limit) return;
+		if (Array.isArray(node)) {
+			for (const item of node) collectAll(item, namespace);
+			return;
+		}
+		if (typeof node !== 'object') return;
+		const rec = node as Record<string, unknown>;
+		if (typeof rec['target'] === 'string') {
+			const title = typeof rec['title'] === 'string' && rec['title'] ? rec['title'] : namespace;
+			const docs = typeof rec['docs'] === 'string' ? rec['docs'] : undefined;
+			const prefill =
+				rec['source'] !== undefined
+					? (extractPrefill(rec['source'], rec['target'] as string, path) ?? undefined)
+					: undefined;
+			push(rec['target'] as string, title, docs, prefill);
+		}
+		for (const [k, v] of Object.entries(rec)) {
+			if (k === 'target' || k === 'source') continue;
+			collectAll(v, k.startsWith('/') || namespace ? namespace : k);
+		}
+	}
+
 	// Index by domain first when the payload is keyed by host.
 	if (rules && typeof rules === 'object' && !Array.isArray(rules)) {
 		const rec = rules as Record<string, unknown>;
@@ -315,6 +372,7 @@ export function matchRadarRules(rules: unknown, siteUrl: string): RadarCandidate
 			// letters and pulled their routes into the wrong subscription.
 			if (d === host || host.endsWith(`.${d}`)) {
 				walk(value, domain);
+				if (isRoot && out.length < limit) collectAll(value, domain);
 			}
 		}
 		// No fallback walk: when no domain key matched, the rules belong to
@@ -356,14 +414,15 @@ async function fetchRadarRules(): Promise<unknown> {
 	}
 }
 
-/** Site URL → up to 5 RSSHub route suggestions. Never throws; `failed` distinguishes an instance/rules outage (retry later) from "no rule matched" (definitive). */
+/** Site URL → RSSHub route suggestions (up to `limit`, default 5). Never throws; `failed` distinguishes an instance/rules outage (retry later) from "no rule matched" (definitive). */
 export async function getRadarCandidates(
-	siteUrl: string
+	siteUrl: string,
+	opts: { limit?: number } = {}
 ): Promise<{ candidates: RadarCandidate[]; failed: boolean }> {
 	if (!isRsshubEnabled()) return { candidates: [], failed: false };
 	try {
 		const rules = await fetchRadarRules();
-		return { candidates: matchRadarRules(rules, siteUrl), failed: false };
+		return { candidates: matchRadarRules(rules, siteUrl, opts), failed: false };
 	} catch (e) {
 		console.error('rsshub radar lookup failed', e);
 		return { candidates: [], failed: true };

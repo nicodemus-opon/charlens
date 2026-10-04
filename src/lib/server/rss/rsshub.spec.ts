@@ -6,6 +6,7 @@ import {
 	isRsshubUrl,
 	matchRadarRules,
 	matchSourcePattern,
+	radarDisplayName,
 	resolveCandidateUrl
 } from './rsshub';
 
@@ -137,6 +138,64 @@ describe('matchRadarRules', () => {
 
 	it('returns empty for garbage input', () => {
 		expect(matchRadarRules(null, 'not a url [[[')).toStrictEqual([]);
+	});
+
+	it('lists every domain route for a site root (bloomberg-style)', () => {
+		const rules = {
+			'bloomberg.com': {
+				www: [
+					{
+						title: 'Authors',
+						docs: 'https://docs.rsshub.app/routes/finance',
+						source: ['/*/authors/:id/:slug', '/authors/:id/:slug'],
+						target: '/bloomberg/authors/:id/:slug'
+					},
+					{ title: 'Markets', source: ['/markets'], target: '/bloomberg/markets' }
+				]
+			}
+		};
+		// Neither source matches "/" strictly, but a pasted site root lists all.
+		const out = matchRadarRules(rules, 'https://www.bloomberg.com/');
+		expect(out.length).toBe(2);
+		expect(out.map((c) => c.routePath).sort()).toStrictEqual(
+			['/bloomberg/authors/:id/:slug', '/bloomberg/markets'].sort()
+		);
+	});
+
+	it('keeps deep pages strictly matched (no domain listing)', () => {
+		const rules = {
+			'bloomberg.com': {
+				www: [
+					{
+						title: 'Authors',
+						source: ['/*/authors/:id/:slug', '/authors/:id/:slug'],
+						target: '/bloomberg/authors/:id/:slug'
+					},
+					{ title: 'Markets', source: ['/markets'], target: '/bloomberg/markets' }
+				]
+			}
+		};
+		expect(matchRadarRules(rules, 'https://www.bloomberg.com/politics')).toStrictEqual([]);
+	});
+
+	it('respects the limit option', () => {
+		const make = (i: number) => ({ title: `F${i}`, source: ['/'], target: `/x/feed${i}` });
+		const rules = { 'example.com': { '.': [make(1), make(2), make(3)] } };
+		expect(matchRadarRules(rules, 'https://example.com/', { limit: 2 }).length).toBe(2);
+		expect(matchRadarRules(rules, 'https://example.com/').length).toBe(3);
+	});
+});
+
+describe('radarDisplayName', () => {
+	it('prefers pasted values over the generic rule title', () => {
+		expect(
+			radarDisplayName({ title: 'Channel with user handle', prefill: { username: '@x' } })
+		).toBe('@x');
+	});
+
+	it('falls back to the rule title without prefill', () => {
+		expect(radarDisplayName({ title: 'Markets', prefill: undefined })).toBe('Markets');
+		expect(radarDisplayName({ title: 'Authors', prefill: {} })).toBe('Authors');
 	});
 });
 

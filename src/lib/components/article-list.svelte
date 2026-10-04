@@ -23,6 +23,8 @@
 		showReadMinutes = true,
 		density = 'comfortable',
 		showFeedback = false,
+		/** False when an ancestor owns the scroll container (sticky translucent header scrolls over this list). */
+		scrollable = true,
 		onSelect
 	}: {
 		articles: ArticleRow[];
@@ -42,6 +44,7 @@
 		density?: 'comfortable' | 'compact';
 		/** True on Recommended: each row gets a "less like this" menu (dismiss / mute feed / mute topic). */
 		showFeedback?: boolean;
+		scrollable?: boolean;
 		onSelect?: (id: number) => void;
 	} = $props();
 
@@ -82,7 +85,8 @@
 {:else if view === 'grid'}
 	<div
 		class={cn(
-			'grid min-h-0 flex-1 items-start gap-4 overflow-y-auto p-4 sm:gap-6 sm:p-5',
+			'grid items-start gap-4 p-4 sm:gap-6 sm:p-5',
+			scrollable ? 'min-h-0 flex-1 overflow-y-auto' : 'flex-none',
 			gridClass
 		)}
 	>
@@ -132,7 +136,7 @@
 		{/each}
 	</div>
 {:else if view === 'compact'}
-	<div class="min-h-0 flex-1 overflow-y-auto">
+	<div class={scrollable ? 'min-h-0 flex-1 overflow-y-auto' : 'flex-none'}>
 		{#each articles as a (a.id)}
 			{@const isSelected = selectedId === String(a.id)}
 			<div
@@ -188,7 +192,7 @@
 		{/each}
 	</div>
 {:else}
-	<div class="@container min-h-0 flex-1 overflow-y-auto">
+	<div class={scrollable ? '@container min-h-0 flex-1 overflow-y-auto' : '@container flex-none'}>
 		{#each articles as a (a.id)}
 			{@const isSelected = selectedId === String(a.id)}
 			<div
@@ -210,27 +214,32 @@
 							seed={a}
 							src={a.imageUrl}
 							alt=""
-							class="size-14 shrink-0 rounded-lg @sm:size-16 @md:size-20 @lg:size-24"
+							class="size-14 shrink-0 rounded-lg max-sm:hidden @sm:size-16 @md:size-20 @lg:size-24"
 						/>
 					{/if}
-					<div class="flex min-w-0 flex-1 flex-col gap-1.5">
+					<div class="flex min-w-0 flex-1 flex-col gap-1 sm:gap-1.5">
 						<div class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-							<span class="truncate">{a.feedTitle}</span>
-							<span aria-hidden="true">·</span>
+							<span class="truncate tracking-wide uppercase">{a.feedTitle}</span>
 							<span class="shrink-0">{dateLabel(a.publishedAt)}</span>
 							{#if showReadMinutes && a.readMinutes}
-								<span class="flex shrink-0 items-center gap-1">
+								<span class="flex shrink-0 items-center gap-1 max-sm:hidden">
 									<Clock class="size-3" />
 									{a.readMinutes} min
 								</span>
 							{/if}
 						</div>
-						<p class="line-clamp-2 text-sm font-medium text-foreground">{a.title}</p>
+						<p
+							class="line-clamp-2 text-base font-semibold text-foreground sm:text-sm sm:font-medium"
+						>
+							{a.title}
+						</p>
 						{#if showExcerpts && a.excerpt}
-							<p class="line-clamp-2 text-xs text-muted-foreground">{a.excerpt}</p>
+							<p class="line-clamp-1 text-xs text-muted-foreground sm:line-clamp-2">{a.excerpt}</p>
 						{/if}
 						{#if !a.isRead || a.isSaved || a.tags.length > 0}
-							<div class="flex min-w-0 flex-wrap items-center gap-1.5 overflow-hidden pt-1.5">
+							<div
+								class="flex min-w-0 flex-wrap items-center gap-1.5 overflow-hidden pt-1.5 max-sm:hidden"
+							>
 								{#if !a.isRead}<Badge variant="default" class="shrink-0">New</Badge>{/if}
 								{#if a.isSaved}<Badge variant="secondary" class="shrink-0">Saved</Badge>{/if}
 								{#each a.tags.slice(0, 3) as t (t.id)}

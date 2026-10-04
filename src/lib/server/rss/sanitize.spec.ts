@@ -29,6 +29,50 @@ describe('pickImage', () => {
 			'https://img.test/b.png'
 		);
 	});
+	it('decodes entities in content image urls', () => {
+		expect(
+			pickImage({
+				content: '<p><img src="https://img.test/c.png?quality=90&#038;strip=all"></p>'
+			})
+		).toBe('https://img.test/c.png?quality=90&strip=all');
+	});
+	it('skips relative content images for later absolute ones', () => {
+		expect(
+			pickImage({
+				content: '<p><img src="/thumb.png"></p><p><img src="https://img.test/d.png"></p>'
+			})
+		).toBe('https://img.test/d.png');
+	});
+	it('reads youtube-style media group thumbnails', () => {
+		expect(
+			pickImage({
+				mediaGroup: {
+					'media:content': [
+						{
+							$: {
+								url: 'https://www.youtube.com/v/abc?version=3',
+								type: 'application/x-shockwave-flash'
+							}
+						}
+					],
+					'media:thumbnail': [{ $: { url: 'https://i4.ytimg.com/vi/abc/hqdefault.jpg' } }]
+				}
+			})
+		).toBe('https://i4.ytimg.com/vi/abc/hqdefault.jpg');
+	});
+	it('reads top-level media content images', () => {
+		expect(
+			pickImage({ mediaContent: { $: { url: 'https://img.test/e.jpg', medium: 'image' } } })
+		).toBe('https://img.test/e.jpg');
+	});
+	it('still prefers enclosure over media', () => {
+		expect(
+			pickImage({
+				enclosure: { url: 'https://img.test/a.jpg' },
+				mediaContent: { $: { url: 'https://img.test/e.jpg', medium: 'image' } }
+			})
+		).toBe('https://img.test/a.jpg');
+	});
 });
 
 describe('stripDuplicateImage', () => {

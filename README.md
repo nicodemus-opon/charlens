@@ -73,9 +73,14 @@ All RSS fetching/parsing lives in SvelteKit (`src/lib/server/rss/`).
   `http://localhost:1200`), `RSSHUB_ENABLED=1`, `RSSHUB_TIMEOUT_MS=15000`.
 - Add content: paste any link — a feed URL, a site homepage, a YouTube
   channel, anything. The server figures it out in the background: direct feed,
-  common feed paths, then self-hosted RSSHub Radar rules (params like channel
-  handles are extracted from the pasted URL automatically). See
+  the page's declared `<link rel="alternate">` feeds, common feed paths, then
+  self-hosted RSSHub Radar rules (params like channel handles are extracted
+  from the pasted URL automatically). See
   https://docs.rsshub.app/guide/ for what RSSHub can generate.
+- Discover (`/discover`): keyword search returns publishers currently writing
+  about the topic via a keyless web lookup (Google News RSS, server-side, 1h
+  cache, region-aware from the browser locale). Disable it with
+  `FEED_SEARCH_ENABLED=0`.
 - Truncated stories show **Load full text** in the reader, which
   `POST /api/articles/[id]/fulltext` scrapes (article/main fallback, meta
   author/date/og:image backfill, 7-day cooldown, 2 MB / 15 s caps) into
@@ -94,7 +99,16 @@ All RSS fetching/parsing lives in SvelteKit (`src/lib/server/rss/`).
   `FEED_REFRESH_INTERVAL_MIN="15"`, disable with
   `FEED_REFRESH_SCHEDULER_ENABLED="0"`.
 - `GET /api/feeds/refresh` (authed) reports scheduler status
-  (`running`, `intervalMs`, `lastRunAt`, last counts).
+  (`running`, `intervalMs`, `lastRunAt`, last counts, plus
+  `lastConsolidateAt` / `consolidateMerged` / `consolidatePruned`).
+- Background tag consolidation runs inside the scheduler on its own daily
+  gate (default every 24 h, `TAG_CONSOLIDATE_*`): merges singular/plural +
+  word-order duplicate auto-tags, prunes low-value junk (enrich-source links
+  only — manual/feed tags are never touched), drops orphan tags, and merges
+  embedding synonyms. Disable with `TAG_CONSOLIDATE_ENABLED="0"`. The
+  one-off `scripts/clean-tags.ts` / `scripts/retopic.ts` remain for manual
+  backfills; they share the same junk rules via
+  `src/lib/server/enrich/tag-hygiene.ts`.
 
 Auth tables come from `pnpm auth:schema` (better-auth → Drizzle schema). Run
 it again after upgrading better-auth, then `pnpm db:generate` + `pnpm db:migrate`.

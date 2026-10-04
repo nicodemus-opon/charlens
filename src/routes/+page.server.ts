@@ -81,7 +81,10 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		// I/O. A hanging feed fetch used to stall navigation (apparent UI
 		// freeze on filter switches); fresh items land on the next load.
 		// The explicit Refresh button still awaits completion.
-		if (!articleId && (filter === 'today' || (!feedId && !query))) {
+		// Scoped views (feed/tag/collection/smart) never trigger it: firing
+		// a network storm on every scope click steals CPU/DB from the page
+		// load itself on small hosts.
+		if (!articleId && !feedId && !collectionId && !viewId && !tagId && !query) {
 			void refreshStaleFeeds(user.id, false).catch((e) =>
 				console.error('background refresh failed', e)
 			);
@@ -110,42 +113,46 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 					query,
 					limit: 100
 				});
-		const tagMap = await getTagsForArticles(
-			user.id,
-			articles.map((a) => a.id)
-		);
+		// Everything below fans out in parallel: the old sequential chain
+		// (~7 round trips) was the main cost of tag/scope clicks on
+		// higher-latency databases. selectedId is known up front, so even
+		// the selection detail + its tags join the same block.
+		const selectedId = articleId ? Number(articleId) : articles[0]?.id;
+		const [tagMap, selected, settingsResult, tags, viewPrefs, selectedTags] = await Promise.all([
+			getTagsForArticles(
+				user.id,
+				articles.map((a) => a.id)
+			),
+			selectedId ? getArticleById(user.id, selectedId) : Promise.resolve(null),
+			getUserSettings(user.id).catch((e) => {
+				console.error('settings load failed', e);
+				return {};
+			}),
+			listTags(user.id),
+			getViewPrefs(user.id).catch((e) => {
+				console.error('view prefs load failed', e);
+				return {};
+			}),
+			selectedId ? getArticleTags(user.id, selectedId) : Promise.resolve([])
+		]);
 		const articlesWithTags = articles.map((a) => ({ ...a, tags: tagMap.get(a.id) ?? [] }));
-		const selectedId = articleId ? Number(articleId) : articlesWithTags[0]?.id;
-		const selected = selectedId ? await getArticleById(user.id, selectedId) : null;
+		// Account settings gate auto-read + telemetry (Settings → reading &
 		// Account settings gate auto-read + telemetry (Settings → reading &
 		// privacy). Pre-migration DBs fall back to the historical always-on.
-		let markReadOnOpen = true;
-		let telemetryEnabled = true;
-		try {
-			const settings = await getUserSettings(user.id);
-			if (typeof settings.markReadOnOpen === 'boolean') markReadOnOpen = settings.markReadOnOpen;
-			if (typeof settings.telemetryEnabled === 'boolean')
-				telemetryEnabled = settings.telemetryEnabled;
-		} catch (e) {
-			console.error('settings load failed', e);
-		}
+		const settings = settingsResult as Record<string, unknown>;
+		const markReadOnOpen =
+			typeof settings.markReadOnOpen === 'boolean' ? settings.markReadOnOpen : true;
+		const telemetryEnabled =
+			typeof settings.telemetryEnabled === 'boolean' ? settings.telemetryEnabled : true;
+		const writes: Promise<unknown>[] = [];
 		if (selected && !selected.isRead && markReadOnOpen) {
-			await markRead(user.id, selected.id, true);
+			writes.push(markRead(user.id, selected.id, true));
 			selected.isRead = true;
 		}
 		if (selected && articleId && telemetryEnabled) {
-			await logArticleEvent(user.id, selected.id, 'open');
+			writes.push(logArticleEvent(user.id, selected.id, 'open'));
 		}
-		const selectedTags = selected ? await getArticleTags(user.id, selected.id) : [];
-		const tags = await listTags(user.id);
-		// Per-scope layout prefs: never fail the page when the table is
-		// missing (pre-migration DB) — the client falls back to defaults.
-		let viewPrefs: Record<string, string> = {};
-		try {
-			viewPrefs = await getViewPrefs(user.id);
-		} catch (e) {
-			console.error('view prefs load failed', e);
-		}
+		if (writes.length > 0) await Promise.all(writes);
 		const viewScope = getViewScopeKey({
 			filter,
 			feedId,

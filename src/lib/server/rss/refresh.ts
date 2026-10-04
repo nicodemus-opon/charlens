@@ -1166,6 +1166,10 @@ export async function getRecommendedCount(userId: string): Promise<number> {
  * the view is useful immediately. A non-empty `query` switches to the search
  * profile: query intent dominates and feed affinity is ignored.
  */
+// Query embeddings are deterministic: process-wide cache so repeat searches
+// skip inference entirely.
+const QUERY_VEC_CACHE_MAX = 200;
+const queryVecCache = new Map<string, number[]>();
 export async function getRecommendedArticles(
 	userId: string,
 	opts: {
@@ -1184,11 +1188,21 @@ export async function getRecommendedArticles(
 	// Semantic search: embed the query once, then rank the whole recent window
 	// by cosine similarity instead of substring filtering. When the embedding
 	// model is unavailable (keyword-only mode) fall back to the ilike filter.
-	let queryVec: number[] | null = null;
-	if (isSearch) {
+	// Query embeddings are deterministic: cache them so repeat searches
+	// (backspace, revisit, per-keystroke overlap) skip inference entirely.
+	const cacheKey = trimmedQuery.toLowerCase();
+	let queryVec: number[] | null = queryVecCache.get(cacheKey) ?? null;
+	if (isSearch && !queryVec) {
 		try {
 			const { embedText } = await import('$lib/server/enrich/embeddings');
 			queryVec = await embedText(trimmedQuery);
+			if (queryVec) {
+				queryVecCache.set(cacheKey, queryVec);
+				if (queryVecCache.size > QUERY_VEC_CACHE_MAX) {
+					const oldest = queryVecCache.keys().next().value;
+					if (oldest !== undefined) queryVecCache.delete(oldest);
+				}
+			}
 		} catch {
 			queryVec = null;
 		}

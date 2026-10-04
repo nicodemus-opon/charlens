@@ -131,7 +131,7 @@ describe('articlePaletteItems', () => {
 			],
 			now
 		);
-		expect(withFeed.hint).toBe('Tech · 3h');
+		expect(withFeed.hint).toBe('Tech, 3h');
 		expect(withoutFeed.hint).toBe('');
 	});
 

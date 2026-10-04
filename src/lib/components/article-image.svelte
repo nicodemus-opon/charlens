@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getCoverDataUri, isUsableCoverWidth, type ArtSeed } from '$lib/article-cover.js';
+	import { MIN_COVER_WIDTH, getCoverDataUri, type ArtSeed } from '$lib/article-cover.js';
 	import { cn } from '$lib/utils.js';
 
 	let {
@@ -7,13 +7,17 @@
 		src = null,
 		alt = '',
 		class: className,
-		imgClass = 'absolute inset-0 h-full w-full object-cover'
+		imgClass = 'absolute inset-0 h-full w-full object-cover',
+		minCoverWidth = MIN_COVER_WIDTH
 	}: {
 		seed: ArtSeed;
 		src?: string | null;
 		alt?: string;
 		class?: string;
 		imgClass?: string;
+		/** Minimum intrinsic width to accept. Small thumbs (e.g. preview rows
+		 * at 56px) can accept smaller sources than full-size heroes. */
+		minCoverWidth?: number;
 	} = $props();
 
 	// Deterministic DiceBear covers, one per color scheme: identical on server
@@ -27,7 +31,7 @@
 	let realImg: HTMLImageElement | null = $state(null);
 
 	function judge(el: HTMLImageElement) {
-		if (isUsableCoverWidth(el.naturalWidth)) loaded = true;
+		if (el.naturalWidth >= minCoverWidth) loaded = true;
 		else failed = true;
 	}
 

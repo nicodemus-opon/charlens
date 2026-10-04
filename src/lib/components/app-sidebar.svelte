@@ -21,6 +21,7 @@
 		Newspaper,
 		Pencil,
 		Plus,
+		Rss,
 		Search,
 		Sparkles,
 		Trash2
@@ -29,7 +30,6 @@
 	import { feedDisplayIcon } from '$lib/feed-icon';
 	import { mobileActions } from '$lib/mobile-actions.svelte.js';
 	import { settingsStore } from '$lib/settings.svelte.js';
-	import AddFeedDialog from './add-feed-dialog.svelte';
 	import CollectionDialog from './collection-dialog.svelte';
 	import CommandPalette from './command-palette.svelte';
 	import SmartViewBuilderDialog from './smart-view-builder-dialog.svelte';
@@ -103,6 +103,7 @@
 	// Feed scopes live on `/` — while on `/settings` (or any other route)
 	// no feed item is active, otherwise Today highlights incorrectly.
 	const onHome = $derived($page.url.pathname === '/');
+	const onDiscover = $derived($page.url.pathname.startsWith('/discover'));
 
 	const manualCollections = $derived(collections.filter((c) => c.kind !== 'smart'));
 	const smartViews = $derived(collections.filter((c) => c.kind === 'smart'));
@@ -135,10 +136,6 @@
 		for (const [name, items] of leftovers) groups.push({ id: null, name, items });
 		return groups;
 	});
-
-	const userCollections = $derived([
-		...new Set([...manualCollections.map((c) => c.name), ...feeds.map((f) => f.collectionName)])
-	]);
 
 	/** Collection groups start open; the chevron rotates and the feed list collapses on toggle. */
 	let collapsedCollections = $state<Record<string, boolean>>({});
@@ -449,14 +446,6 @@
 				<Button
 					variant="outline"
 					size="icon-sm"
-					aria-label="Add content"
-					onclick={() => (mobileActions.addOpen = true)}
-				>
-					<Plus />
-				</Button>
-				<Button
-					variant="outline"
-					size="icon-sm"
 					aria-label="Search (⌘K)"
 					onclick={() => (mobileActions.paletteOpen = true)}
 				>
@@ -473,16 +462,6 @@
 					<span class="text-base font-semibold text-foreground">charlens</span>
 				</a>
 				<Sidebar.Trigger />
-			</div>
-			<div class="px-2 pt-1">
-				<Button
-					variant="outline"
-					size="sm"
-					class="w-full"
-					onclick={() => (mobileActions.addOpen = true)}
-				>
-					<Plus /> Add content
-				</Button>
 			</div>
 		{/if}
 	</Sidebar.Header>
@@ -544,6 +523,16 @@
 								>
 									<Compass />
 									<span class="min-w-0 flex-1 truncate"> Recommended </span>
+								</a>
+							{/snippet}
+						</Sidebar.MenuButton>
+					</Sidebar.MenuItem>
+					<Sidebar.MenuItem>
+						<Sidebar.MenuButton isActive={onDiscover} tooltipContent="Discover">
+							{#snippet child({ props })}
+								<a href="/discover" {...props}>
+									<Rss />
+									<span class="min-w-0 flex-1 truncate"> Discover </span>
 								</a>
 							{/snippet}
 						</Sidebar.MenuButton>
@@ -700,12 +689,7 @@
 		{/if}
 	</Sidebar.Content>
 	<Sidebar.Footer>
-		<NavUser
-			{user}
-			feedsCount={feeds.length}
-			onAddContent={() => (mobileActions.addOpen = true)}
-			onRefreshFeeds={refreshFeeds}
-		/>
+		<NavUser {user} feedsCount={feeds.length} onRefreshFeeds={refreshFeeds} />
 	</Sidebar.Footer>
 	<Sidebar.Rail />
 </Sidebar.Root>
@@ -733,11 +717,9 @@
 	{feeds}
 	{collections}
 	{tags}
-	onAddContent={() => (mobileActions.addOpen = true)}
 	onRefreshFeeds={refreshFeeds}
 />
 
-<AddFeedDialog bind:open={mobileActions.addOpen} existingCollections={userCollections} />
 <CollectionDialog
 	bind:open={collectionDialogOpen}
 	collectionId={renameTarget?.id ?? null}

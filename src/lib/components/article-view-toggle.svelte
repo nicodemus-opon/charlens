@@ -27,7 +27,7 @@
 		{#snippet child({ props })}
 			<Button
 				{...props}
-				variant="outline"
+				variant="ghost"
 				size="icon-sm"
 				class="min-h-11 min-w-11 md:min-h-0 md:min-w-0"
 			>

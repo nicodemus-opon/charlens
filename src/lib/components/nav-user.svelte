@@ -1,13 +1,5 @@
 <script lang="ts">
-	import {
-		ChevronsUpDown,
-		Keyboard,
-		LogOut,
-		PanelLeft,
-		Plus,
-		RefreshCw,
-		Settings
-	} from '@lucide/svelte';
+	import { ChevronsUpDown, Keyboard, LogOut, PanelLeft, RefreshCw, Settings } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { authClient } from '$lib/auth-client.js';
 	import { shortcutsState } from '$lib/shortcuts.svelte.js';
@@ -25,12 +17,10 @@
 	let {
 		user = null,
 		feedsCount = 0,
-		onAddContent,
 		onRefreshFeeds
 	}: {
 		user?: SidebarUser | null;
 		feedsCount?: number;
-		onAddContent?: () => void;
 		onRefreshFeeds?: () => void;
 	} = $props();
 
@@ -100,10 +90,6 @@
 				</DropdownMenu.Label>
 				<DropdownMenu.Separator />
 				<DropdownMenu.Group>
-					<DropdownMenu.Item onSelect={() => onAddContent?.()}>
-						<Plus />
-						Add content
-					</DropdownMenu.Item>
 					<DropdownMenu.Item onSelect={() => onRefreshFeeds?.()}>
 						<RefreshCw />
 						Refresh feeds

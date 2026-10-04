@@ -122,7 +122,7 @@
 </script>
 
 <svelte:head>
-	<title>Settings · charlens</title>
+	<title>Settings charlens</title>
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-10">
@@ -472,15 +472,15 @@
 							{#if importFile}
 								<p class="text-sm font-medium break-all text-foreground">{importFile.name}</p>
 								<p class="text-xs text-muted-foreground">
-									{formatFileSize(importFile.size)} · drop another file or click to replace
+									{formatFileSize(importFile.size)}, drop another file or click to replace
 								</p>
 							{:else}
 								<p class="text-sm font-medium text-foreground">
 									Drop an OPML file here, or click to browse
 								</p>
 								<p class="text-xs text-muted-foreground">
-									.opml or .xml · max 2 MB · up to 500 feeds · works with FreshRSS, Miniflux and
-									other readers
+									.opml or .xml, max 2 MB, up to 500 feeds, works with FreshRSS, Miniflux and other
+									readers
 								</p>
 							{/if}
 						</div>

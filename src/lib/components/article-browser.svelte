@@ -50,8 +50,8 @@
 	const topicCount = $derived(new Set(articles.flatMap((a) => a.tags.map((t) => t.id))).size);
 	const countLine = $derived(
 		view === 'magazine' && topicCount > 0
-			? `${articles.length} stories · ${unreadCount} unread · ${topicCount} ${topicCount === 1 ? 'topic' : 'topics'}`
-			: `${articles.length} stories · ${unreadCount} unread`
+			? `${articles.length} stories, ${unreadCount} unread, ${topicCount} ${topicCount === 1 ? 'topic' : 'topics'}`
+			: `${articles.length} stories, ${unreadCount} unread`
 	);
 	const sortedArticles = $derived(sortArticles(articles, sort));
 	// Refresh-button feedback: spins the icon for the round trip only.
@@ -83,24 +83,26 @@
 	});
 </script>
 
-<section class="flex min-h-0 flex-1 flex-col bg-background">
-	<div class="flex min-h-14 shrink-0 items-center gap-2 border-b border-border px-4 sm:px-5">
+<section class="flex min-h-0 flex-1 flex-col overflow-y-auto bg-background">
+	<div
+		class="sticky top-0 z-10 flex min-h-12 shrink-0 items-center gap-2 border-b border-border bg-background/80 px-3 backdrop-blur sm:min-h-14 sm:px-5"
+	>
 		<div class="flex min-w-0 flex-1 items-center gap-2">
 			<h2
 				tabindex="-1"
 				data-article-list-heading
-				class="truncate text-lg font-bold text-foreground md:text-sm md:font-semibold"
+				class="truncate text-base font-semibold text-foreground"
 			>
 				{title}
 			</h2>
-			<p class="shrink-0 text-xs text-muted-foreground">
+			<p class="hidden shrink-0 text-xs text-muted-foreground sm:block">
 				{countLine}
 			</p>
 		</div>
 		<div class="ml-auto hidden w-56 min-w-0 md:block"><SearchBox /></div>
-		<div class="ml-auto flex items-center gap-1 md:ml-0">
+		<div class="ml-auto flex items-center gap-0 sm:gap-1 md:ml-0">
 			<ArticleViewToggle bind:view />
-			<ArticleSortDropdown bind:sort />
+			<span class="hidden sm:inline-flex"><ArticleSortDropdown bind:sort /></span>
 			{#if !focusMode}
 				<Button
 					variant="ghost"
@@ -141,10 +143,11 @@
 		<MagazineView
 			articles={sortedArticles}
 			{showFeedback}
+			scrollable={false}
 			onSelect={(id) => onSelect?.(id) ?? onExpand?.()}
 		/>
 	{:else}
-		<div class="flex min-h-0 w-full flex-1 flex-col pt-4 pb-6 sm:pt-6 sm:pb-8">
+		<div class="flex w-full flex-none flex-col pt-4 pb-24 sm:pt-6 md:pb-8">
 			{#if ready}
 				<ArticleList
 					articles={sortedArticles}
@@ -155,10 +158,11 @@
 					{showReadMinutes}
 					{density}
 					{showFeedback}
+					scrollable={false}
 					onSelect={(id) => onSelect?.(id) ?? onExpand?.()}
 				/>
 			{:else}
-				<div class="flex min-h-0 w-full flex-1 flex-col gap-3 px-4" aria-hidden="true">
+				<div class="flex w-full flex-none flex-col gap-3 px-4" aria-hidden="true">
 					<Skeleton class="h-16 w-full" />
 					<Skeleton class="h-16 w-full" />
 					<Skeleton class="h-16 w-full" />

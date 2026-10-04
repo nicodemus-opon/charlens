@@ -1,5 +1,10 @@
 // One-off junk-tag cleanup + re-tag with the v6 extractor.
 //
+// NOTE: steady-state healing now runs automatically via the background
+// consolidate job (src/lib/server/enrich/consolidate.ts, daily gate in the
+// feed scheduler). This script remains for manual backfills; its junk rules
+// are the shared implementation in tag-hygiene.ts.
+//
 // Usage:
 //   pnpm exec tsx scripts/clean-tags.ts            # dry run (no writes)
 //   pnpm exec tsx scripts/clean-tags.ts --apply    # delete junk, re-tag, drop orphans
@@ -31,138 +36,16 @@ import { extractTopics, textFromHtml } from '../src/lib/server/enrich/keywords';
 import { computeDocFreq } from '../src/lib/server/enrich/keywords';
 import { buildLabelSet } from '../src/lib/server/enrich/labels';
 import { classifyKeywordTopics } from '../src/lib/server/enrich/topics';
+import { isJunkTag as sharedIsJunkTag, singularize } from '../src/lib/server/enrich/tag-hygiene';
+
+// Shared with the background consolidate job (src/lib/server/enrich/
+// consolidate.ts): identical junk rules, one implementation.
+export const isJunkTag = sharedIsJunkTag;
 
 const APPLY = process.argv.includes('--apply');
 
 const client = postgres(process.env.DATABASE_URL ?? '', { max: 5 });
 const db = drizzle(client);
-
-const EXACT_JUNK = new Set([
-	'page page',
-	'page',
-	'pages',
-	'http',
-	'https',
-	'www',
-	'html',
-	'81rc',
-	'ago',
-	'min ago',
-	'mins ago',
-	'min',
-	'mins',
-	'hrs ago',
-	'hrs',
-	'secs ago',
-	'secs',
-	// Verified sidebar/ad junk (each checked against every article carrying it).
-	'secure payments kenya',
-	'flash sale',
-	'gentrix osano school',
-	'united nations general assembly',
-	'java9',
-	// Plural dup of a canonical tag ("incident").
-	'incidents'
-]);
-
-const CHROME = new Set([
-	'http',
-	'https',
-	'www',
-	'html',
-	'htm',
-	'com',
-	'cn',
-	'net',
-	'org',
-	'gov',
-	'edu',
-	'php',
-	'aspx',
-	'jsp',
-	'url',
-	'page',
-	'pages',
-	'81rc'
-]);
-
-// Filler verbs/generic nouns whose presence marks a bigram as junk
-// ("costs put", "engine behind", "little bit", "learn babies").
-const FILLER = new Set(
-	(
-		'let,lets,make,made,take,put,get,got,go,goes,going,come,comes,think,thinks,' +
-		'mean,means,seem,seems,look,looks,turn,turns,swirl,swirls,help,helps,keep,keeps,' +
-		'start,starts,deal,deals,win,wins,learn,behind,without,end,side,back,little,bit,' +
-		'lot,lots,kind,sort,thing,things,stuff,way,ways,become,becomes,becoming,done,' +
-		'ahead,around,right,left,write,ones,know,move,run,runs,running,lesson,actually,' +
-		'refuse,something,learned,want,wants,talk,talks,long,short,fix,fixed,please,' +
-		'cheap,additional,breakdown,understand,hate,measurable,boost,eye,eyes,stop,stops,' +
-		'build,built,era,existing,limit,limited,well,lead,lost,deliver,delivered,' +
-		'delivering,despite,robust,peer,opaque,mystery,question,topic,set,spot,' +
-		'industrial,related,return,sight,shouldn,raise,failed,mull,happen,held,' +
-		'promise,promised,opinion,making,tell,told,exist,grow,seiz,park,green,cold,' +
-		'rich,economic,design,designing,pressure,heat,regime,bonus,baby,availability,' +
-		'rule,master,mall,pretend,pretending,production,taxing,normalise,normalised,' +
-		'normalize,normalized,climb,climbed,climbing,don,launch,unexpected,capital,' +
-		'domestic,declare,declared,gain,guide,fair,app,career,lender,deployment,' +
-		'delivery,meant,ocean,risk,turning,demand,increase,increasing,' +
-		'increased,dim,test,testing,insane,insanely,special,trainer,concern,stupid,' +
-		'chair,trust,trusting,trusted,memory,future,face,weapon,compile,owned,' +
-		'budding,buy,upbeat,job,jobless,tried,speak,speaks,speaking,spoke,finally,' +
-		'final,pilot,kill,kills,killed,killing,favorite,clone,clones,cloned,double,' +
-		'dream,career,compliance,illicit,release,released,releasing,powered,tap,' +
-		'hurdle,tech,feature,enough,age,starting,started,stay,stayed,stays,pin,' +
-		'pinned,deprecate,deprecated,deprecating,catch,faster,fastest,fast,slow,' +
-		'slower,slowest,worse,worst,bad,four,five,six,seven,eight,nine,ten,score,' +
-		'stage,vendor,practitioner,provider,multi,ship,shipping,shipped,anyway,' +
-		'safe,beat,spelling,spell,facility,caught,worth,raising,incredible,' +
-		'interim,word,slowed,hit,break,cup,logistic,trained,offered,offer,' +
-		'offering,compliant,building,pass,highest,higher,enable,enabled,' +
-		'enabling,protect,protected,protecting,case,compress,compressed,' +
-		'compressing'
-	).split(',')
-);
-
-// Standalone generic nouns: junk only as single-word tags ("model", "power").
-// Mirrors GENERIC_NOUNS in the extractor; multi-word tags are left alone.
-const GENERIC = new Set(
-	(
-		'agent,area,bank,big,business,code,coding,cost,county,engine,experience,' +
-		'european,finance,firm,good,group,high,investor,knowledge,land,market,' +
-		'model,official,plant,policy,power,price,program,project,property,rate,' +
-		'record,resource,school,sector,service,solid,state,study,system,team,top'
-	).split(',')
-);
-
-function singularize(w: string): string {
-	if (w.length <= 3) return w;
-	if (w.endsWith('ies') && w.length > 5) return w.slice(0, -3) + 'y';
-	if (/(ses|xes|zes|ches|shes)$/.test(w) && w.length > 5) return w.slice(0, -2);
-	if (w.endsWith('s') && !/(ss|us)$/.test(w)) return w.slice(0, -1);
-	return w;
-}
-
-export function isJunkTag(name: string): boolean {
-	const n = name.trim().toLowerCase();
-	if (!n) return true;
-	if (EXACT_JUNK.has(n)) return true;
-	if (/\b\d+\s*(secs?|mins?|hrs?|hours?|days?|weeks?)\s+ago\b/.test(n)) return true;
-	const parts = n.split(/\s+/);
-	if (parts.length === 2 && singularize(parts[0]) === singularize(parts[1])) return true;
-	// Single-letter shards ("kenya g") are never real tags ('&' excepted).
-	if (parts.some((p) => p.length < 2 && p !== '&')) return true;
-	if (parts.length === 1 && GENERIC.has(singularize(n))) return true;
-	for (const p of parts) {
-		const s = singularize(p);
-		if (CHROME.has(p) || CHROME.has(s)) return true;
-		if (FILLER.has(p) || FILLER.has(s)) return true;
-		if (GENERIC.has(p) || GENERIC.has(s)) return true;
-		// digit-mixed shards ("sh26", "81rc", "70mw", "9bn")
-		if (/[a-z]/.test(p) && /[0-9]/.test(p) && p.length < 5) return true;
-		if (/^\d+[a-z]+$/.test(p) || /^[a-z]+\d+$/.test(p)) return true;
-	}
-	return false;
-}
 
 async function main() {
 	const usageRows = await db

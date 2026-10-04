@@ -13,6 +13,15 @@ if (!building) {
 	} catch (e) {
 		console.error('feed scheduler failed to start', e);
 	}
+	// Warm the embedding model off the request path: the first search after a
+	// deploy would otherwise pay the full model download + ONNX init inline.
+	// Delayed so boot traffic wins the CPU; failures stay silent (search
+	// falls back to keyword matching when the model is unavailable).
+	setTimeout(() => {
+		import('$lib/server/enrich/embeddings')
+			.then(({ embedText }) => embedText('warmup'))
+			.catch(() => {});
+	}, 15_000);
 }
 
 const handleBetterAuth: Handle = async ({ event, resolve }) => {

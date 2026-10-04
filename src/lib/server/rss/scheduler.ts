@@ -17,6 +17,11 @@ import {
 	isEnrichAutoEnabled,
 	refreshAllUserInterests
 } from '$lib/server/enrich/enrich';
+import {
+	consolidateAllUsers,
+	isTagConsolidateEnabled,
+	shouldRunConsolidation
+} from '$lib/server/enrich/consolidate';
 
 export interface SchedulerRunResult {
 	checked: number;
@@ -30,6 +35,8 @@ export interface SchedulerRunResult {
 	embedEmbedded: number;
 	embedFailed: number;
 	interestUpdated: number;
+	consolidateMerged: number;
+	consolidatePruned: number;
 }
 
 export interface SchedulerStatus extends SchedulerRunResult {
@@ -37,6 +44,7 @@ export interface SchedulerStatus extends SchedulerRunResult {
 	intervalMs: number;
 	lastRunAt: string | null;
 	lastError: string | null;
+	lastConsolidateAt: string | null;
 }
 
 const BOOT_DELAY_MS = 10_000;
@@ -118,7 +126,9 @@ export async function refreshAllStaleFeeds(
 		enrichFailed: 0,
 		embedEmbedded: 0,
 		embedFailed: 0,
-		interestUpdated: 0
+		interestUpdated: 0,
+		consolidateMerged: 0,
+		consolidatePruned: 0
 	};
 	for (const f of feeds) {
 		if (!isFeedStale(f.lastFetchedAt, force)) continue;
@@ -163,6 +173,25 @@ export async function refreshAllStaleFeeds(
 		} catch (e) {
 			console.error('scheduled interest refresh failed', e);
 		}
+		// Daily tag consolidation: merge string/semantic dups + prune
+		// low-value junk on enrich-source links only. Gated by its own
+		// interval (default 24h) so the 15-min tick stays cheap; isolated so
+		// consolidation never breaks refresh.
+		if (isTagConsolidateEnabled()) {
+			try {
+				// Only in scheduler context (state exists): ad-hoc callers of
+				// refreshAllStaleFeeds never trigger the daily job.
+				const sched = globalState.__charlensScheduler;
+				if (sched && shouldRunConsolidation(sched.lastConsolidateAt)) {
+					const con = await consolidateAllUsers();
+					result.consolidateMerged = con.merged;
+					result.consolidatePruned = con.prunedLinks + con.deletedTags;
+					sched.lastConsolidateAt = new Date().toISOString();
+				}
+			} catch (e) {
+				console.error('scheduled tag consolidation failed', e);
+			}
+		}
 	}
 	return result;
 }
@@ -171,6 +200,7 @@ const globalState = globalThis as unknown as {
 	__charlensScheduler?: {
 		timer: ReturnType<typeof setInterval>;
 		lastRunAt: string | null;
+		lastConsolidateAt: string | null;
 		lastResult: SchedulerRunResult;
 		lastError: string | null;
 	};
@@ -187,6 +217,7 @@ export function startScheduler(): void {
 	const state = {
 		timer: undefined as unknown as ReturnType<typeof setInterval>,
 		lastRunAt: null as string | null,
+		lastConsolidateAt: null as string | null,
 		lastResult: {
 			checked: 0,
 			refreshed: 0,
@@ -198,7 +229,9 @@ export function startScheduler(): void {
 			enrichFailed: 0,
 			embedEmbedded: 0,
 			embedFailed: 0,
-			interestUpdated: 0
+			interestUpdated: 0,
+			consolidateMerged: 0,
+			consolidatePruned: 0
 		} as SchedulerRunResult,
 		lastError: null as string | null
 	};
@@ -209,7 +242,7 @@ export function startScheduler(): void {
 			state.lastRunAt = new Date().toISOString();
 			state.lastError = null;
 			console.log(
-				`scheduled feed refresh: ${state.lastResult.refreshed}/${state.lastResult.checked} feeds, +${state.lastResult.added} articles, fulltext +${state.lastResult.fulltextScraped}, enrich +${state.lastResult.enrichEnriched}, embed +${state.lastResult.embedEmbedded}, interest +${state.lastResult.interestUpdated}`
+				`scheduled feed refresh: ${state.lastResult.refreshed}/${state.lastResult.checked} feeds, +${state.lastResult.added} articles, fulltext +${state.lastResult.fulltextScraped}, enrich +${state.lastResult.enrichEnriched}, embed +${state.lastResult.embedEmbedded}, interest +${state.lastResult.interestUpdated}, consolidate +${state.lastResult.consolidateMerged} merged +${state.lastResult.consolidatePruned} pruned`
 			);
 		} catch (e) {
 			state.lastError = e instanceof Error ? e.message : String(e);
@@ -243,7 +276,10 @@ export function getSchedulerStatus(): SchedulerStatus {
 		enrichFailed: s?.lastResult.enrichFailed ?? 0,
 		embedEmbedded: s?.lastResult.embedEmbedded ?? 0,
 		embedFailed: s?.lastResult.embedFailed ?? 0,
-		interestUpdated: s?.lastResult.interestUpdated ?? 0
+		interestUpdated: s?.lastResult.interestUpdated ?? 0,
+		consolidateMerged: s?.lastResult.consolidateMerged ?? 0,
+		consolidatePruned: s?.lastResult.consolidatePruned ?? 0,
+		lastConsolidateAt: s?.lastConsolidateAt ?? null
 	};
 }
 

@@ -1,6 +1,10 @@
 // Re-tag every article with the v6 pipeline (unanchored tags + closed topic
 // taxonomy) and reconcile stale title-echo enrich tags.
 //
+// NOTE: steady-state healing now runs automatically via the background
+// consolidate job (src/lib/server/enrich/consolidate.ts, daily gate in the
+// feed scheduler). This script remains for manual full-corpus backfills.
+//
 // Usage:
 //   pnpm exec tsx scripts/retopic.ts                   # dry run (no writes)
 //   pnpm exec tsx scripts/retopic.ts --apply           # re-tag + reconcile

@@ -21,7 +21,6 @@
 		Folder,
 		Hash,
 		Newspaper,
-		Plus,
 		RefreshCw,
 		Rss,
 		Settings,
@@ -52,14 +51,12 @@
 		feeds = [],
 		collections = [],
 		tags = [],
-		onAddContent,
 		onRefreshFeeds
 	}: {
 		open?: boolean;
 		feeds?: PaletteFeed[];
 		collections?: CollectionRow[];
 		tags?: PaletteTag[];
-		onAddContent?: () => void;
 		onRefreshFeeds?: () => void;
 	} = $props();
 
@@ -177,12 +174,12 @@
 		keywords: ['preferences', 'options', 'theme'],
 		href: '/settings'
 	};
-	const addAction: PaletteAction = {
-		id: 'action-add',
-		label: 'Add content',
-		hint: 'Feed or RSSHub route',
-		keywords: ['subscribe', 'new feed'],
-		run: () => onAddContent?.()
+	const discoverRow: PaletteItem = {
+		id: 'go-discover',
+		label: 'Discover',
+		hint: 'Find new feeds',
+		keywords: ['add content', 'subscribe', 'new feed', 'sources', 'rsshub'],
+		href: '/discover'
 	};
 	const refreshAction: PaletteAction = {
 		id: 'action-refresh',
@@ -344,7 +341,7 @@
 			<Command.Separator />
 		{/if}
 
-		{#if visible(todayRow) || visible(savedRow) || visible(recommendedRow) || visible(allRow) || visible(settingsRow)}
+		{#if visible(todayRow) || visible(savedRow) || visible(recommendedRow) || visible(allRow) || visible(settingsRow) || visible(discoverRow)}
 			<Command.Group heading="Go to">
 				{#if visible(todayRow)}
 					{@render row(todayRow, todayIcon)}
@@ -357,6 +354,9 @@
 				{/if}
 				{#if visible(allRow)}
 					{@render row(allRow, articleIcon)}
+				{/if}
+				{#if visible(discoverRow)}
+					{@render row(discoverRow, feedIcon)}
 				{/if}
 				{#if visible(settingsRow)}
 					{@render row(settingsRow, settingsIcon)}
@@ -401,15 +401,8 @@
 			<Command.Separator />
 		{/if}
 
-		{#if visible(addAction) || visible(refreshAction)}
+		{#if visible(refreshAction)}
 			<Command.Group heading="Actions">
-				{#if visible(addAction)}
-					<Command.Item value={addAction.id} onSelect={() => runAction(addAction.run)}>
-						<Plus />
-						<span class="min-w-0 flex-1 truncate">{addAction.label}</span>
-						<span class="ml-auto shrink-0 text-xs text-muted-foreground">{addAction.hint}</span>
-					</Command.Item>
-				{/if}
 				{#if visible(refreshAction)}
 					<Command.Item value={refreshAction.id} onSelect={() => runAction(refreshAction.run)}>
 						<RefreshCw />

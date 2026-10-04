@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
 	PARSER_OPTIONS,
 	RSSHUB_PARSE_TIMEOUT_MS,
+	checkDirectFeed,
+	discoverAllSiteFeeds,
+	extractFeedLinks,
 	faviconForUrl,
+	fetchFeedTitle,
 	isTransientFeedError,
 	parseFeedDate,
 	parseTimeoutFor
@@ -125,5 +129,63 @@ describe('faviconForUrl', () => {
 	it('returns undefined without a usable url', () => {
 		expect(faviconForUrl(undefined, undefined)).toBeUndefined();
 		expect(faviconForUrl('not a url')).toBeUndefined();
+	});
+});
+
+describe('extractFeedLinks (declared-feed discovery)', () => {
+	const html = `
+		<html><head>
+		<link rel="alternate" type="application/rss+xml" title="News" href="/news/feed/" />
+		<link rel="alternate" type="application/atom+xml" href="https://example.com/atom.xml" />
+		<link rel="stylesheet" href="/style.css" />
+		<link rel="alternate" type="text/html" href="/about" />
+		</head></html>`;
+
+	it('collects rss/atom links and resolves relative hrefs', () => {
+		expect(extractFeedLinks(html, 'https://example.com/')).toStrictEqual([
+			'https://example.com/news/feed/',
+			'https://example.com/atom.xml'
+		]);
+	});
+
+	it('ignores stylesheets and non-feed alternates', () => {
+		expect(
+			extractFeedLinks('<link rel="stylesheet" href="/a.css" />', 'https://x.test')
+		).toStrictEqual([]);
+	});
+
+	it('returns empty for pages without declared feeds', () => {
+		expect(extractFeedLinks('<html><head></head></html>', 'https://x.test')).toStrictEqual([]);
+	});
+
+	it('collects up to 10 declared feeds (multi-feed sites)', () => {
+		const links = Array.from(
+			{ length: 12 },
+			(_, i) =>
+				`<link rel="alternate" type="application/rss+xml" href="https://x.test/f${i}.xml" />`
+		).join('\n');
+		expect(extractFeedLinks(`<html><head>${links}</head></html>`, 'https://x.test')).toHaveLength(
+			10
+		);
+	});
+});
+
+describe('discoverAllSiteFeeds', () => {
+	it('returns empty for garbage input without network', async () => {
+		await expect(discoverAllSiteFeeds('not a url [[[ Value')).resolves.toStrictEqual([]);
+	});
+});
+
+describe('checkDirectFeed', () => {
+	it('reports garbage input as definitively not a feed', async () => {
+		await expect(checkDirectFeed('not a url [[[ Value')).resolves.toStrictEqual({
+			status: 'no'
+		});
+	});
+});
+
+describe('fetchFeedTitle', () => {
+	it('returns null for garbage input without hanging', async () => {
+		await expect(fetchFeedTitle('not a url [[[ Value', 1000)).resolves.toBeNull();
 	});
 });

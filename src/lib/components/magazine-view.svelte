@@ -18,6 +18,8 @@
 		emptyTitle = 'No articles yet',
 		emptyDescription = 'Add a feed or hit refresh to pull the latest stories.',
 		showFeedback = false,
+		/** False when an ancestor owns the scroll container (sticky translucent header scrolls over this list). */
+		scrollable = true,
 		onSelect
 	}: {
 		articles: ArticleRow[];
@@ -32,6 +34,7 @@
 		emptyDescription?: string;
 		/** True on Recommended: cards get a "less like this" overlay menu. */
 		showFeedback?: boolean;
+		scrollable?: boolean;
 		onSelect?: (id: number) => void;
 	} = $props();
 
@@ -118,17 +121,21 @@
 		if (a.author) parts.push(a.author);
 		const date = dateLabel(a.publishedAt);
 		if (date) parts.push(date);
-		return parts.join(' · ');
+		return parts.join(', ');
 	}
 </script>
 
 {#snippet kicker(a: ArticleRow)}
 	<div class="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
 		<span class="truncate font-medium">{a.feedTitle}</span>
-		{#if !a.isRead}<Badge variant="default">New</Badge>{/if}
-		{#if a.isSaved}<Badge variant="secondary">Saved</Badge>{/if}
+		{#if !a.isRead}<Badge variant="default" class="max-sm:hidden">New</Badge>{/if}
+		{#if a.isSaved}<Badge variant="secondary" class="max-sm:hidden">Saved</Badge>{/if}
 		{#if a.tags[0]}
-			<Badge variant="outline" href={tagFilterHref(a.tags[0].id)} class="max-w-36 justify-start">
+			<Badge
+				variant="outline"
+				href={tagFilterHref(a.tags[0].id)}
+				class="max-w-36 justify-start max-sm:hidden"
+			>
 				<span class="min-w-0 truncate">{a.tags[0].name}</span>
 			</Badge>
 		{/if}
@@ -221,7 +228,7 @@
 {:else}
 	{@const lead = sections.lead}
 	{@const hero = sections.hero}
-	<div class="min-h-0 flex-1 overflow-y-auto">
+	<div class={scrollable ? 'min-h-0 flex-1 overflow-y-auto' : 'flex-none pb-20 md:pb-0'}>
 		<div class="mx-auto w-full max-w-7xl px-4 pt-6 pb-8 sm:px-5">
 			{#if hero === 'trio'}
 				<!-- Three image-led stories: even three-up hero row. -->
@@ -252,7 +259,7 @@
 										<p class="mt-auto flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
 											<span class="truncate">{byline(lead)}</span>
 											{#if lead.readMinutes}
-												<span class="flex shrink-0 items-center gap-1">
+												<span class="flex shrink-0 items-center gap-1 max-sm:hidden">
 													<Clock class="size-3" />
 													{lead.readMinutes} min
 												</span>
@@ -322,7 +329,7 @@
 										<p class="mt-auto flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
 											<span class="truncate">{byline(lead)}</span>
 											{#if lead.readMinutes}
-												<span class="flex shrink-0 items-center gap-1">
+												<span class="flex shrink-0 items-center gap-1 max-sm:hidden">
 													<Clock class="size-3" />
 													{lead.readMinutes} min
 												</span>
@@ -399,7 +406,7 @@
 									<p class="flex items-center gap-1.5 text-xs text-muted-foreground">
 										<span class="truncate">{byline(lead)}</span>
 										{#if lead.readMinutes}
-											<span class="flex shrink-0 items-center gap-1">
+											<span class="flex shrink-0 items-center gap-1 max-sm:hidden">
 												<Clock class="size-3" />
 												{lead.readMinutes} min
 											</span>

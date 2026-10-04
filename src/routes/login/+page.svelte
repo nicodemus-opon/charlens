@@ -20,7 +20,7 @@
 </script>
 
 <svelte:head>
-	<title>{isSignup ? 'Sign up' : 'Sign in'} · charlens</title>
+	<title>{isSignup ? 'Sign up' : 'Sign in'} charlens</title>
 </svelte:head>
 
 <div class="flex min-h-dvh items-center justify-center bg-muted p-4 sm:p-6">

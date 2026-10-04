@@ -92,7 +92,7 @@
 	onpointermove={handlePointerMove}
 	onpointerup={handlePointerUp}
 	onpointercancel={handlePointerUp}
-	title="Drag to resize · click to toggle"
+	title="Drag to resize or click to toggle"
 	class={cn(
 		'absolute inset-y-0 z-20 hidden w-4 touch-none transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-px hover:after:bg-sidebar-border/50 sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2',
 		'in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize',

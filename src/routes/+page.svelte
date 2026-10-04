@@ -569,7 +569,7 @@
 </script>
 
 <svelte:head>
-	<title>{feedTitle} · charlens</title>
+	<title>{feedTitle} charlens</title>
 </svelte:head>
 
 <div class="flex h-dvh min-h-0 min-w-0 bg-background text-foreground">
@@ -584,17 +584,21 @@
 			bind:this={listPane}
 			onExpand={handlePaneExpand}
 			onCollapse={handlePaneCollapse}
-			class="flex min-h-0 flex-col bg-card max-md:hidden"
+			class="flex min-h-0 flex-col overflow-y-auto bg-card max-md:hidden"
 		>
-			<div class="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
+			<div
+				class="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-card/80 px-4 backdrop-blur"
+			>
 				<SearchBox />
 				<ArticleViewToggle bind:view />
 			</div>
-			<div class="flex items-start justify-between gap-2 border-b border-border px-5 py-4">
+			<div
+				class="sticky top-14 z-10 flex items-start justify-between gap-2 border-b border-border bg-card/80 px-5 py-4 backdrop-blur"
+			>
 				<div class="min-w-0">
 					<h1 class="truncate text-lg font-bold text-foreground">{feedTitle}</h1>
 					<p class="text-xs text-muted-foreground">
-						{data.articles.length} stories · {unreadCount} unread
+						{data.articles.length} stories, {unreadCount} unread
 					</p>
 				</div>
 				<div class="flex items-center gap-1">
@@ -664,6 +668,7 @@
 					showReadMinutes={showMinutes}
 					density={readerDensity}
 					showFeedback={isRecommended}
+					scrollable={false}
 					onSelect={() => {
 						if (focusMode) panelOpen = false;
 					}}
@@ -681,7 +686,7 @@
 			{/if}
 		</Resizable.Pane>
 		<Resizable.Handle class="max-md:hidden" withHandle />
-		<Resizable.Pane order={2} minSize={30} class="flex min-h-0 min-w-0 flex-col">
+		<Resizable.Pane order={2} minSize={30} class="relative flex min-h-0 min-w-0 flex-col">
 			{#if showReader}
 				<ReaderPane
 					article={data.selected}

@@ -140,7 +140,7 @@ export function articlePaletteItems(
 	return articles.map((article) => ({
 		id: `article-${article.id}`,
 		label: article.title,
-		hint: [article.feedTitle, relativeAge(article.publishedAt, now)].filter(Boolean).join(' · '),
+		hint: [article.feedTitle, relativeAge(article.publishedAt, now)].filter(Boolean).join(', '),
 		href: articleHref(article.id)
 	}));
 }

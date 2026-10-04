@@ -29,6 +29,9 @@
 		query = current ?? '';
 	});
 
+	// Each navigation re-runs the full ranked search server-side (semantic
+	// when the model is available), so the pause is generous: a burst of
+	// typing costs one load, not one per keystroke.
 	function onSearchInput() {
 		if (debounce) clearTimeout(debounce);
 		debounce = setTimeout(() => {
@@ -44,7 +47,7 @@
 				keepFocus: true,
 				noScroll: true
 			});
-		}, 350);
+		}, 600);
 	}
 
 	function onSearchBlur() {
