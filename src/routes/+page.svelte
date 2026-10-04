@@ -584,106 +584,111 @@
 			bind:this={listPane}
 			onExpand={handlePaneExpand}
 			onCollapse={handlePaneCollapse}
-			class="flex min-h-0 flex-col overflow-y-auto bg-card max-md:hidden"
+			class="flex min-h-0 flex-col bg-card max-md:hidden"
 		>
-			<div
-				class="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-card/80 px-4 backdrop-blur"
-			>
-				<SearchBox />
-				<ArticleViewToggle bind:view />
-			</div>
-			<div
-				class="sticky top-14 z-10 flex items-start justify-between gap-2 border-b border-border bg-card/80 px-5 py-4 backdrop-blur"
-			>
-				<div class="min-w-0">
-					<h1 class="truncate text-lg font-bold text-foreground">{feedTitle}</h1>
-					<p class="text-xs text-muted-foreground">
-						{data.articles.length} stories, {unreadCount} unread
-					</p>
+			<!-- paneforge forces overflow:hidden on the pane itself, so the
+			scroll container must be an inner element (same as the reader /
+			browser pane on the right). -->
+			<div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
+				<div
+					class="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-card/80 px-4 backdrop-blur"
+				>
+					<SearchBox />
+					<ArticleViewToggle bind:view />
 				</div>
-				<div class="flex items-center gap-1">
-					{#if isRecommended}
-						<Button
-							variant="ghost"
-							size="icon-sm"
-							type="button"
-							aria-label="Shuffle recommendations"
-							onclick={reshuffle}
-						>
-							<Shuffle />
-						</Button>
-					{/if}
-					{#if unreadCount > 0}
-						<form
-							method="POST"
-							action="/?/markAllRead"
-							bind:this={markAllForm}
-							use:enhance={() => {
-								markingAll = true;
-								return async ({ update }) => {
-									await update();
-									markingAll = false;
-								};
-							}}
-						>
+				<div
+					class="sticky top-14 z-10 flex items-start justify-between gap-2 border-b border-border bg-card/80 px-5 py-4 backdrop-blur"
+				>
+					<div class="min-w-0">
+						<h1 class="truncate text-lg font-bold text-foreground">{feedTitle}</h1>
+						<p class="text-xs text-muted-foreground">
+							{data.articles.length} stories, {unreadCount} unread
+						</p>
+					</div>
+					<div class="flex items-center gap-1">
+						{#if isRecommended}
 							<Button
 								variant="ghost"
 								size="icon-sm"
-								type="submit"
-								disabled={markingAll}
-								aria-label={`Mark all ${unreadCount} as read`}
-								title="Mark all as read (Shift+A)"
+								type="button"
+								aria-label="Shuffle recommendations"
+								onclick={reshuffle}
 							>
-								<CheckCheck />
+								<Shuffle />
+							</Button>
+						{/if}
+						{#if unreadCount > 0}
+							<form
+								method="POST"
+								action="/?/markAllRead"
+								bind:this={markAllForm}
+								use:enhance={() => {
+									markingAll = true;
+									return async ({ update }) => {
+										await update();
+										markingAll = false;
+									};
+								}}
+							>
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									type="submit"
+									disabled={markingAll}
+									aria-label={`Mark all ${unreadCount} as read`}
+									title="Mark all as read (Shift+A)"
+								>
+									<CheckCheck />
+								</Button>
+							</form>
+						{/if}
+						<form
+							method="POST"
+							action="/?/refresh"
+							use:enhance={() => {
+								refreshing = true;
+								return async ({ update }) => {
+									await update();
+									refreshing = false;
+								};
+							}}
+						>
+							<Button variant="ghost" size="icon-sm" type="submit" aria-label="Refresh feeds">
+								<RefreshCw class={refreshing ? 'animate-spin' : undefined} />
 							</Button>
 						</form>
-					{/if}
-					<form
-						method="POST"
-						action="/?/refresh"
-						use:enhance={() => {
-							refreshing = true;
-							return async ({ update }) => {
-								await update();
-								refreshing = false;
-							};
-						}}
-					>
-						<Button variant="ghost" size="icon-sm" type="submit" aria-label="Refresh feeds">
-							<RefreshCw class={refreshing ? 'animate-spin' : undefined} />
-						</Button>
-					</form>
+					</div>
 				</div>
-			</div>
-			{#if prefsRestored}
-				<!-- The side pane is too narrow for the front-page hero, so the
+				{#if prefsRestored}
+					<!-- The side pane is too narrow for the front-page hero, so the
 				magazine view falls back to cards here; the wide browser pane
 				still renders the full magazine below. -->
-				<ArticleList
-					articles={data.articles}
-					view={view === 'magazine' ? 'grid' : view}
-					gridClass="grid-cols-1"
-					{showImages}
-					{showExcerpts}
-					showReadMinutes={showMinutes}
-					density={readerDensity}
-					showFeedback={isRecommended}
-					scrollable={false}
-					onSelect={() => {
-						if (focusMode) panelOpen = false;
-					}}
-				/>
-			{:else}
-				<!-- Neutral placeholder: same rhythm as the list rows, but with no
+					<ArticleList
+						articles={data.articles}
+						view={view === 'magazine' ? 'grid' : view}
+						gridClass="grid-cols-1"
+						{showImages}
+						{showExcerpts}
+						showReadMinutes={showMinutes}
+						density={readerDensity}
+						showFeedback={isRecommended}
+						scrollable={false}
+						onSelect={() => {
+							if (focusMode) panelOpen = false;
+						}}
+					/>
+				{:else}
+					<!-- Neutral placeholder: same rhythm as the list rows, but with no
 				layout of its own so no saved view flashes through first. -->
-				<div class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-5" aria-hidden="true">
-					<Skeleton class="h-16 w-full" />
-					<Skeleton class="h-16 w-full" />
-					<Skeleton class="h-16 w-full" />
-					<Skeleton class="h-16 w-full" />
-					<Skeleton class="h-16 w-full" />
-				</div>
-			{/if}
+					<div class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-5" aria-hidden="true">
+						<Skeleton class="h-16 w-full" />
+						<Skeleton class="h-16 w-full" />
+						<Skeleton class="h-16 w-full" />
+						<Skeleton class="h-16 w-full" />
+						<Skeleton class="h-16 w-full" />
+					</div>
+				{/if}
+			</div>
 		</Resizable.Pane>
 		<Resizable.Handle class="max-md:hidden" withHandle />
 		<Resizable.Pane order={2} minSize={30} class="relative flex min-h-0 min-w-0 flex-col">
