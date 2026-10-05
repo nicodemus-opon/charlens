@@ -23,7 +23,7 @@ describe('consolidate env parsing', () => {
 	it('clamps ranges', () => {
 		expect(getTagConsolidateIntervalH('0')).toBe(1);
 		expect(getTagConsolidateIntervalH('999')).toBe(168);
-		expect(getTagConsolidateIntervalH('bogus')).toBe(24);
+		expect(getTagConsolidateIntervalH('bogus')).toBe(1);
 		expect(getTagConsolidateMaxUsers('0')).toBe(1);
 		expect(getTagConsolidateMaxMergesPerUser('999')).toBe(50);
 		expect(getTagConsolidateMinSimilarity('0.1')).toBe(0.8);

@@ -126,13 +126,20 @@ export const load: PageServerLoad = async ({ url, locals, request }) => {
 		// check classifies the pasted URL itself so an HTML page (channel,
 		// article, site root) doesn't get a redundant "Direct feed" row when
 		// real feeds were found.
+		// Radar rows resolve to feed URLs served by the self-hosted RSSHub
+		// instance — offering them while it is unreachable produces Follow
+		// buttons that can only fail (the banner already says suggestions
+		// are unavailable), so skip the lookup entirely when unhealthy.
 		const [directCheck, siteFeeds, radarResult] = await Promise.all([
 			direct ? checkDirectFeed(direct) : Promise.resolve(null),
 			discoverAllSiteFeeds(q).catch((e) => {
 				console.error('discover site feeds lookup failed', e);
 				return [];
 			}),
-			getRadarCandidates(q, { limit: 20 }).catch((e) => {
+			(rsshubOk
+				? getRadarCandidates(q, { limit: 20 })
+				: Promise.resolve({ candidates: [], failed: false })
+			).catch((e) => {
 				console.error('discover radar lookup failed', e);
 				return { candidates: [], failed: true } as const;
 			})
@@ -306,10 +313,15 @@ export const actions: Actions = {
 			console.error('discover follow failed', e);
 			return fail(400, { message: 'Could not add feed.' });
 		}
-		const background = populateFeed(feedId, feedUrl);
-		(
+		const background = () => populateFeed(feedId, feedUrl);
+		const waiter = (
 			platform as { context?: { waitUntil?: (p: Promise<unknown>) => void } } | undefined
-		)?.context?.waitUntil?.(background);
+		)?.context?.waitUntil;
+		if (waiter) waiter(background());
+		// No waitUntil (dev / plain Node): kick off after the redirect
+		// response is flushed so the landing page SSR never contends with
+		// the populate pipeline (fetch + scrape + enrich) for the event loop.
+		else setTimeout(() => void background(), 0);
 		throw redirect(303, '/?filter=all');
 	}
 };

@@ -64,7 +64,7 @@ export function isTagConsolidateEnabled(raw?: string): boolean {
 }
 
 export function getTagConsolidateIntervalH(raw?: string): number {
-	return parseClamped(raw ?? env.TAG_CONSOLIDATE_INTERVAL_H ?? '24', 24, 1, 168);
+	return parseClamped(raw ?? env.TAG_CONSOLIDATE_INTERVAL_H ?? '1', 1, 1, 168);
 }
 
 export function getTagConsolidateMaxUsers(raw?: string): number {
@@ -81,7 +81,7 @@ export function getTagConsolidateMinSimilarity(raw?: string): number {
 	return Math.min(0.99, Math.max(0.8, n));
 }
 
-/** Daily gate: true when never ran or the interval has elapsed. */
+/** Hourly gate: true when never ran or the interval has elapsed. */
 export function shouldRunConsolidation(
 	lastRunAtIso: string | null,
 	nowMs = Date.now(),
@@ -415,7 +415,7 @@ export async function consolidateUserTags(
 
 /**
  * Consolidate enrich tags across users (called from the scheduler on the
- * daily gate, not every tick). Capped so a big multi-user instance stays
+ * hourly gate, not every tick). Capped so a big multi-user instance stays
  * cheap. One user's failure never aborts the run.
  */
 export async function consolidateAllUsers(

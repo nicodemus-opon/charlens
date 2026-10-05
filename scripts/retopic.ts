@@ -2,7 +2,7 @@
 // taxonomy) and reconcile stale title-echo enrich tags.
 //
 // NOTE: steady-state healing now runs automatically via the background
-// consolidate job (src/lib/server/enrich/consolidate.ts, daily gate in the
+// consolidate job (src/lib/server/enrich/consolidate.ts, hourly gate in the
 // feed scheduler). This script remains for manual full-corpus backfills.
 //
 // Usage:

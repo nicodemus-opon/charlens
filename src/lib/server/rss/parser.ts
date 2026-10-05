@@ -1,6 +1,6 @@
 import Parser from 'rss-parser';
 import { normalizeFeedTags } from '$lib/tags';
-import { IPV4_COMPAT_REQUEST_OPTIONS } from '$lib/server/net';
+import { fetchExternal, IPV4_COMPAT_REQUEST_OPTIONS } from '$lib/server/net';
 import { excerptFrom, pickImage, sanitizeArticleHtml, stripDuplicateImage } from './sanitize';
 import { getRadarCandidates, isRsshubUrl, resolveCandidateUrl } from './rsshub';
 
@@ -180,7 +180,9 @@ export async function fetchFeedTitle(url: string, budgetMs = 8_000): Promise<str
  *
  * ENOTFOUND/EAI_AGAIN count as transient on purpose: silently deleting a feed
  * the user just added during a DNS hiccup is worse than keeping a row that a
- * later retry (or the user) can remove.
+ * later retry (or the user) can remove. 419 counts as transient too: it is
+ * the rate-limit status (e.g. Hacker News gating bot-like TLS clients while
+ * browsers pass) — worth one more attempt, not a verdict.
  */
 export function isTransientFeedError(e: unknown): boolean {
 	if (!(e instanceof Error)) return false;
@@ -191,7 +193,7 @@ export function isTransientFeedError(e: unknown): boolean {
 	// polling blocks lift or are bypassed with a better UA. Deleting the user's
 	// feed on a 403 would drop subscriptions that a retry could heal, so keep
 	// the placeholder and let the scheduler retry.
-	return /timed out|timeout|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|EHOSTUNREACH|ENETUNREACH|EPIPE|socket hang up|fetch failed|network error|Status code (5\d\d|429|408|40[13])/i.test(
+	return /timed out|timeout|ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|EHOSTUNREACH|ENETUNREACH|EPIPE|socket hang up|fetch failed|network error|Status code (5\d\d|429|419|408|40[13])/i.test(
 		text
 	);
 }
@@ -233,6 +235,23 @@ const KNOWN_SITE_FEEDS: Record<string, string[]> = {
 		'/feeds/crypto/news.rss',
 		'/feeds/businessweek/news.rss',
 		'/feeds/bview/news.rss'
+	],
+	// Human-readable /rss index lists section feeds (/rss/*.php) while the
+	// homepage declares no `<link rel="alternate">` and /rss itself is HTML.
+	'standardmedia.co.ke': [
+		'/rss/headlines.php',
+		'/rss/kenya.php',
+		'/rss/world.php',
+		'/rss/politics.php',
+		'/rss/opinion.php',
+		'/rss/sports.php',
+		'/rss/business.php',
+		'/rss/columnists.php',
+		'/rss/magazines.php',
+		'/rss/agriculture.php',
+		'/rss/ktnvideos.php',
+		'/rss/evewoman.php',
+		'/rss/entertainment.php'
 	]
 };
 
@@ -281,35 +300,261 @@ export function extractFeedLinks(html: string, baseUrl: string): string[] {
 	return out;
 }
 
+/**
+ * Feed-looking `<a href>` links on a human-readable RSS index page
+ * (e.g. standardmedia.co.ke/rss lists `/rss/*.php` section feeds while the
+ * homepage declares no `<link rel="alternate">`). Matches hrefs containing
+ * rss/atom/feed or ending in .xml/.rss — verified with a real parse later,
+ * so false positives simply drop out. Pure (tests).
+ */
+export function extractFeedAnchorLinks(html: string, baseUrl: string): string[] {
+	const out: string[] = [];
+	const seen = new Set<string>();
+	const anchorRe = /<a\b[^>]{0,2000}href\s*=\s*["']([^"']{1,2000})["'][^>]{0,2000}>/gi;
+	let m: RegExpExecArray | null;
+	while ((m = anchorRe.exec(html)) !== null) {
+		const href = m[1];
+		if (!/rss|atom|feed|\.xml(\?|#|$)|\.rss(\?|#|$)/.test(href.toLowerCase())) {
+			// StandardMedia-style `/rss/*.php` section feeds have no feed-ish
+			// extension — match them by path instead.
+			if (!/\/rss\//.test(href.toLowerCase())) continue;
+		}
+		try {
+			const abs = new URL(href, baseUrl).toString();
+			if (!abs.startsWith('http')) continue;
+			if (!seen.has(abs) && out.length < 20) {
+				seen.add(abs);
+				out.push(abs);
+			}
+		} catch {
+			// relative URL against a broken base — skip
+		}
+	}
+	return out;
+}
+
+/**
+ * Fetch a page for feed discovery: HTML (up to 500kB) plus the final URL
+ * after redirects. Null on any failure. The final URL matters: a pasted
+ * bare domain (`infoq.com`) redirects to `www`, and section/anchor
+ * extraction must run against the canonical host or same-origin checks
+ * silently drop everything.
+ */
+async function fetchPage(
+	pageUrl: string,
+	timeoutMs: number
+): Promise<{ html: string; finalUrl: string } | null> {
+	// fetchExternal (not global fetch): undici's Happy Eyeballs stalls on
+	// broken-IPv6 networks where rss-parser's http.get path succeeds, so
+	// page fetches must use the same hardened transport as feed parsing.
+	try {
+		const res = await fetchExternal(pageUrl, {
+			timeoutMs,
+			headers: {
+				'User-Agent': PARSER_OPTIONS.headers['User-Agent'],
+				Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+			}
+		});
+		if (res.status < 200 || res.status >= 300) return null;
+		const contentType = res.contentType ?? '';
+		if (contentType !== '' && !/html|xml|rss|atom|feed|text/.test(contentType.toLowerCase())) {
+			return null;
+		}
+		return { html: res.body.toString('utf-8').slice(0, 500_000), finalUrl: res.finalUrl };
+	} catch {
+		return null;
+	}
+}
+
 /** Fetch a site page and list its declared feeds. Never throws. Exported for URL discovery. */
 export async function discoverSiteFeeds(
 	siteUrl: string,
 	timeoutMs = PARSER_OPTIONS.timeout
 ): Promise<string[]> {
+	const page = await fetchPage(siteUrl, timeoutMs);
+	return page === null ? [] : extractFeedLinks(page.html, page.finalUrl);
+}
+
+/**
+ * Fetch a human-readable page (site root, `/rss` index, …) and list
+ * feed-looking `<a href>` links on it. Never throws. Companions
+ * `discoverSiteFeeds` (which only reads `<link rel="alternate">`).
+ */
+export async function discoverAnchorFeeds(pageUrl: string, timeoutMs = 5_000): Promise<string[]> {
+	const page = await fetchPage(pageUrl, timeoutMs);
+	return page === null ? [] : extractFeedAnchorLinks(page.html, page.finalUrl);
+}
+
+/** First path segments that are site chrome, not content sections. */
+const SECTION_DENY = new Set([
+	'login',
+	'signin',
+	'sign-in',
+	'signup',
+	'sign-up',
+	'register',
+	'registration',
+	'auth',
+	'oauth',
+	'sso',
+	'search',
+	'api',
+	'static',
+	'assets',
+	'cdn',
+	'images',
+	'img',
+	'css',
+	'js',
+	'fonts',
+	'privacy',
+	'privacy-notice',
+	'terms',
+	'cookies',
+	'cookie-policy',
+	'legal',
+	'sitemap',
+	'contact',
+	'about',
+	'help',
+	'faq',
+	'faqs',
+	'support',
+	'advertise',
+	'advertising',
+	'careers',
+	'jobs',
+	'subscribe',
+	'newsletter',
+	'newsletters',
+	'unsubscribe',
+	'account',
+	'profile',
+	'settings',
+	'admin',
+	'dashboard',
+	'user',
+	'users',
+	'page',
+	'comments',
+	'shop',
+	'cart',
+	'checkout',
+	'pricing'
+]);
+
+/** Whole section paths that are feed indexes themselves, not content sections. */
+const SECTION_PATH_DENY = new Set(['/rss', '/feed', '/feeds', '/atom', '/rss.xml', '/feed.xml']);
+
+/**
+ * Content-section paths from a page's same-origin nav links (e.g. `/java`,
+ * `/news`, `/category/tech`): candidates for section-feed probing. `<nav>`
+ * links come first — they are the site's real sections, while document
+ * order typically leads with footer/utility links. Skips feed-looking hrefs
+ * (handled by anchor discovery), deep article URLs, files, and site chrome.
+ * Capped. Pure (tests).
+ */
+export function extractSectionPaths(html: string, origin: string, limit = 10): string[] {
+	const out: string[] = [];
+	const seen = new Set<string>();
+	let base: URL;
 	try {
-		const ctrl = new AbortController();
-		const t = setTimeout(() => ctrl.abort(), timeoutMs);
-		try {
-			const res = await fetch(siteUrl, {
-				signal: ctrl.signal,
-				headers: {
-					'User-Agent': PARSER_OPTIONS.headers['User-Agent'],
-					Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-				}
-			});
-			if (!res.ok) return [];
-			const contentType = res.headers.get('content-type') ?? '';
-			if (contentType !== '' && !/html|xml|rss|atom|feed|text/.test(contentType.toLowerCase())) {
-				return [];
-			}
-			const html = (await res.text()).slice(0, 500_000);
-			return extractFeedLinks(html, siteUrl);
-		} finally {
-			clearTimeout(t);
-		}
+		base = new URL(origin);
 	} catch {
 		return [];
 	}
+	// Nav-first ordering: collect hrefs from <nav> blocks, then the whole
+	// page (deduped, nav wins). Keeps footer links like /privacy-notice
+	// from crowding real sections past the cap.
+	const anchorRe = /<a\b[^>]{0,2000}href\s*=\s*["']([^"']{1,2000})["'][^>]{0,2000}>/gi;
+	const hrefsIn = (scope: string): string[] => {
+		const hrefs: string[] = [];
+		anchorRe.lastIndex = 0;
+		let m: RegExpExecArray | null;
+		while ((m = anchorRe.exec(scope)) !== null) hrefs.push(m[1].trim());
+		return hrefs;
+	};
+	const navScopes: string[] = [];
+	const navRe = /<nav\b[^>]*>([\s\S]*?)<\/nav>/gi;
+	let nm: RegExpExecArray | null;
+	while ((nm = navRe.exec(html)) !== null) navScopes.push(nm[1]);
+	const ordered = [...navScopes.flatMap(hrefsIn), ...hrefsIn(html)];
+	for (const rawHref of ordered) {
+		if (out.length >= limit) break;
+		if (
+			rawHref === '' ||
+			rawHref.startsWith('#') ||
+			/^(mailto|javascript|tel|sms):/i.test(rawHref) ||
+			rawHref.includes('?')
+		) {
+			continue;
+		}
+		let url: URL;
+		try {
+			url = new URL(rawHref, origin);
+		} catch {
+			continue;
+		}
+		if (url.origin !== base.origin) continue;
+		const path = url.pathname.replace(/\/+$/, '') || '/';
+		if (path === '/' || SECTION_PATH_DENY.has(path.toLowerCase())) continue;
+		if (/rss|atom|\/feed(\/|$)/i.test(path)) continue;
+		const segs = path.split('/').filter(Boolean);
+		if (segs.length < 1 || segs.length > 2) continue;
+		const first = segs[0].toLowerCase();
+		if (SECTION_DENY.has(first) || /^\d+$/.test(first)) continue;
+		const last = segs[segs.length - 1];
+		if (last.includes('.')) continue;
+		if (!seen.has(path) && out.length < limit) {
+			seen.add(path);
+			out.push(path);
+		}
+	}
+	return out;
+}
+
+/**
+ * Section-feed URL conventions, `{S}` = section path with leading slash:
+ * WordPress (`/category/tech/feed`), Ghost-ish (`/tag/x/rss`), InfoQ-style
+ * (`/rss/java`, `/feed/java`). Probed per nav section and verified with a
+ * real parse, so non-matching conventions fail fast as 404s. No per-site
+ * hardcoding — the site's own nav supplies the sections.
+ */
+const SECTION_FEED_PATTERNS = ['{S}/feed', '{S}/rss', '/rss{S}', '/feed{S}'];
+
+/** Sections probed with every convention before learning the site's style. */
+const SECTION_LEARN_COUNT = 2;
+
+/**
+ * Which section-feed patterns to use for the remaining sections, given
+ * round-A results. Patterns that verified nothing are dropped (their 404s
+ * taught us the convention doesn't apply); when several patterns hit but
+ * every hit is content-identical (alias URLs like `/rss/java` vs
+ * `/feed/java`), only the first is kept. With no hits at all, all patterns
+ * are kept — the remaining probes will be fast 404s anyway. Pure (tests).
+ */
+export function selectPatterns(
+	roundA: { pattern: string; fingerprint: string | null }[],
+	patterns: string[] = SECTION_FEED_PATTERNS
+): string[] {
+	const hitPrints = new Map<string, Set<string>>();
+	for (const r of roundA) {
+		if (r.fingerprint === null) continue;
+		let set = hitPrints.get(r.pattern);
+		if (!set) {
+			set = new Set();
+			hitPrints.set(r.pattern, set);
+		}
+		set.add(r.fingerprint);
+	}
+	const survivors = patterns.filter((p) => hitPrints.has(p));
+	if (survivors.length === 0) return [...patterns];
+	if (survivors.length > 1) {
+		const all = new Set<string>();
+		for (const p of survivors) for (const f of hitPrints.get(p) ?? []) all.add(f);
+		if (all.size === 1) return [survivors[0]];
+	}
+	return survivors;
 }
 
 export interface QuickVerifyResult {
@@ -415,9 +660,12 @@ export async function checkDirectFeed(
 }
 
 /**
- * List every verified native feed belonging to a site: declared
- * `<link rel="alternate">` feeds, well-known paths, plus curated section
- * feeds for bot-walled hosts (see KNOWN_SITE_FEEDS). Each candidate is
+ * List every verified native feed belonging to a site, for any site:
+ * declared `<link rel="alternate">` feeds, feed-looking links on
+ * human-readable RSS index pages (`/rss`, `/feeds`), well-known paths,
+ * section feeds found by probing common feed conventions against the site's
+ * own nav sections (`/category/tech/feed`, `/rss/java`, …), plus curated
+ * fallbacks for bot-walled hosts (see KNOWN_SITE_FEEDS). Each candidate is
  * verified with a real parse (fast 5s timeout, concurrency-capped) so the
  * URL-mode Discover page can present one row per feed instead of a single
  * first-match. Results are cached for an hour. Never throws.
@@ -441,56 +689,179 @@ export async function discoverAllSiteFeeds(siteUrl: string): Promise<SiteFeed[]>
 	const seen = new Set<string>();
 	const probes: string[] = [];
 	const pushProbe = (u: string) => {
-		if (!seen.has(u) && probes.length < 25) {
+		if (!seen.has(u) && probes.length < 50) {
 			seen.add(u);
 			probes.push(u);
 		}
 	};
 
-	// Declared feeds from the pasted page itself (deep pages included).
+	// The three page fetches are independent — run them together. Probe
+	// building happens after all resolve, in priority order: curated feeds
+	// first so junk links can't push them past the probe cap. Everything
+	// resolves against the canonical origin (final URL after redirects), so
+	// a pasted bare domain that redirects to `www` still matches its own
+	// nav links.
+	let learnProbes: { url: string; pattern: string }[] = [];
+	let restSections: string[] = [];
+	let origin = parsedBase.origin;
 	try {
-		for (const declared of await discoverSiteFeeds(withProto, 5_000)) pushProbe(declared);
+		const pastedOrigin = parsedBase.origin;
+		const [pasted, rssPage, feedsPage] = await Promise.all([
+			fetchPage(withProto, 5_000),
+			fetchPage(`${pastedOrigin}/rss`, 5_000),
+			fetchPage(`${pastedOrigin}/feeds`, 5_000)
+		]);
+		if (pasted !== null) {
+			try {
+				origin = new URL(pasted.finalUrl).origin;
+			} catch {
+				// keep the pasted origin
+			}
+			for (const u of extractFeedLinks(pasted.html, pasted.finalUrl)) pushProbe(u);
+		}
+		const host = parsedBase.hostname.toLowerCase().replace(/^www\./, '');
+		for (const path of KNOWN_SITE_FEEDS[host] ?? []) {
+			try {
+				pushProbe(new URL(path, origin).toString());
+			} catch {
+				// skip malformed curated entries
+			}
+		}
+		if (pasted !== null) {
+			for (const u of extractFeedAnchorLinks(pasted.html, pasted.finalUrl)) pushProbe(u);
+		}
+		if (rssPage !== null) {
+			for (const u of extractFeedAnchorLinks(rssPage.html, rssPage.finalUrl)) pushProbe(u);
+		}
+		if (feedsPage !== null) {
+			for (const u of extractFeedAnchorLinks(feedsPage.html, feedsPage.finalUrl)) pushProbe(u);
+		}
+		// Section feeds: the site's own nav supplies section paths; common
+		// feed conventions are probed per section. Non-matching conventions
+		// fail fast (404), matching ones verify below. The first sections
+		// are probed with every convention to learn the site's style
+		// (`selectPatterns` narrows the rest) — this halves the slow probes
+		// on sites like InfoQ instead of hammering every alias.
+		if (pasted !== null) {
+			const sections = extractSectionPaths(pasted.html, origin);
+			for (const section of sections.slice(0, SECTION_LEARN_COUNT)) {
+				for (const pattern of SECTION_FEED_PATTERNS) {
+					const u = `${origin}${pattern.replace('{S}', section)}`;
+					if (!seen.has(u) && probes.length < 50) {
+						seen.add(u);
+						probes.push(u);
+						learnProbes.push({ url: u, pattern });
+					}
+				}
+			}
+			restSections = sections.slice(SECTION_LEARN_COUNT);
+		}
+		// Well-known paths resolve against the canonical origin: appending
+		// them to a deep page URL (…/@handle/feed) would probe nonsense.
+		for (const path of CANDIDATES) pushProbe(`${origin}${path}`);
 	} catch {
 		// never throws inside, defensive only
 	}
-	// Well-known + curated paths resolve against the origin: appending them
-	// to a deep page URL (…/@handle/feed) would probe nonsense.
-	const origin = parsedBase.origin;
-	for (const path of CANDIDATES) pushProbe(`${origin}${path}`);
-	const host = parsedBase.hostname.toLowerCase().replace(/^www\./, '');
-	for (const path of KNOWN_SITE_FEEDS[host] ?? []) {
-		try {
-			pushProbe(new URL(path, origin).toString());
-		} catch {
-			// skip malformed curated entries
-		}
-	}
 
 	const feeds: SiteFeed[] = [];
+	/** Content fingerprint per verified URL, for identical-feed collapsing. */
+	const fingerprints = new Map<string, string>();
 	const CONCURRENCY = 8;
-	for (let i = 0; i < probes.length; i += CONCURRENCY) {
-		const batch = probes.slice(i, i + CONCURRENCY);
+	// Flaky hosts (e.g. standardmedia.co.ke serves some section feeds slowly)
+	// fail individual probes with transient timeouts while succeeding on
+	// retry — so transient failures get one more attempt instead of silently
+	// dropping real feeds from the results.
+	const retryQueue: string[] = [];
+	const verifyBatch = async (batch: string[], fast: boolean) => {
 		const settled = await Promise.allSettled(
-			batch.map(async (u) => ({ url: u, raw: await parseUrl(u, true) }))
+			batch.map(async (u) => ({ url: u, raw: await parseUrl(u, fast) }))
 		);
-		for (const r of settled) {
-			if (r.status !== 'fulfilled') continue;
+		settled.forEach((r, n) => {
+			const url = batch[n];
+			if (r.status !== 'fulfilled') {
+				if (isTransientFeedError(r.reason)) retryQueue.push(url);
+				return;
+			}
 			try {
 				const parsed = toParsedFeed(r.value.raw, r.value.url);
+				// Empty channels (e.g. stub index feeds) are subscribable but
+				// useless on a discovery page — skip them.
+				if (parsed.items.length === 0) return;
 				feeds.push({ url: r.value.url, title: parsed.title });
+				fingerprints.set(
+					r.value.url,
+					`${parsed.items.length}|${parsed.items
+						.slice(0, 5)
+						.map((i) => i.link)
+						.join('|')}`
+				);
 			} catch {
 				// not a feed — skip
 			}
+		});
+	};
+	for (let i = 0; i < probes.length; i += CONCURRENCY) {
+		await verifyBatch(probes.slice(i, i + CONCURRENCY), true);
+	}
+	// Round B: remaining sections use only the conventions that verified in
+	// round A (learned above) — same coverage, far fewer slow probes.
+	if (restSections.length > 0) {
+		const survivors = selectPatterns(
+			learnProbes.map(({ url, pattern }) => ({
+				pattern,
+				fingerprint: fingerprints.get(url) ?? null
+			}))
+		);
+		const roundBStart = probes.length;
+		for (const section of restSections) {
+			for (const pattern of survivors) {
+				pushProbe(`${origin}${pattern.replace('{S}', section)}`);
+			}
+		}
+		for (let i = roundBStart; i < probes.length; i += CONCURRENCY) {
+			await verifyBatch(probes.slice(i, i + CONCURRENCY), true);
 		}
 	}
+	const seenFeed = new Set(feeds.map((f) => f.url));
+	// Snapshot: retry failures must not re-queue into further passes (each
+	// probe gets exactly one retry, bounding the added latency). The patient
+	// timeout is for slow-but-alive site feeds only — RSSHub routes keep the
+	// fast timeout so a cold instance can't stall discovery for a minute.
+	const retries = retryQueue.splice(0, retryQueue.length).filter((u) => !seenFeed.has(u));
+	for (let i = 0; i < retries.length; i += CONCURRENCY) {
+		const batch = retries.slice(i, i + CONCURRENCY);
+		const before = feeds.length;
+		const queuedBefore = retryQueue.length;
+		await verifyBatch(
+			batch.filter((u) => !isRsshubUrl(u)),
+			false
+		);
+		await verifyBatch(
+			batch.filter((u) => isRsshubUrl(u)),
+			true
+		);
+		retryQueue.length = queuedBefore;
+		for (const f of feeds.slice(before)) seenFeed.add(f.url);
+	}
 	// Stable order: curated/declared discovery order is already
-	// most-relevant-first; keep it (no relevance sort here).
+	// most-relevant-first; keep it (no relevance sort here). Collapse URLs
+	// serving byte-identical content (`/feed` vs `/rss` vs `/rss.xml` on the
+	// same host) to the shortest URL so the page doesn't show the same feed
+	// four times. Sections that merely share a lead story have different
+	// item sets and are kept.
+	const deduped = new Map<string, SiteFeed>();
+	for (const f of feeds) {
+		const key = fingerprints.get(f.url) ?? f.url;
+		const prev = deduped.get(key);
+		if (!prev || f.url.length < prev.url.length) deduped.set(key, f);
+	}
+	const unique = [...deduped.values()];
 	if (siteFeedsCache.size >= 200) {
 		const oldest = siteFeedsCache.keys().next();
 		if (!oldest.done) siteFeedsCache.delete(oldest.value);
 	}
-	siteFeedsCache.set(cacheKey, { at: Date.now(), feeds });
-	return feeds;
+	siteFeedsCache.set(cacheKey, { at: Date.now(), feeds: unique });
+	return unique;
 }
 
 export interface DiscoverResult {

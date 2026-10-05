@@ -222,12 +222,16 @@ export const actions: Actions = {
 				message: 'Could not add feed.'
 			});
 		}
-		const background = populateFeed(feedId, url);
+		const background = () => populateFeed(feedId, url);
 		// On serverless platforms keep the work alive past the response;
-		// elsewhere the unawaited promise just runs (populateFeed never throws).
-		(
+		// elsewhere defer past the redirect flush so the landing page SSR
+		// never contends with the populate pipeline for the event loop
+		// (populateFeed never throws).
+		const waiter = (
 			platform as { context?: { waitUntil?: (p: Promise<unknown>) => void } } | undefined
-		)?.context?.waitUntil?.(background);
+		)?.context?.waitUntil;
+		if (waiter) waiter(background());
+		else setTimeout(() => void background(), 0);
 		throw redirect(303, '/?filter=all');
 	},
 	refresh: async ({ locals }) => {

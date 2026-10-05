@@ -4,7 +4,10 @@ import {
 	RSSHUB_PARSE_TIMEOUT_MS,
 	checkDirectFeed,
 	discoverAllSiteFeeds,
+	extractFeedAnchorLinks,
 	extractFeedLinks,
+	extractSectionPaths,
+	selectPatterns,
 	faviconForUrl,
 	fetchFeedTitle,
 	isTransientFeedError,
@@ -56,6 +59,7 @@ describe('isTransientFeedError', () => {
 	it('treats server-side http failures as retryable', () => {
 		expect(isTransientFeedError(new Error('Status code 503'))).toBe(true);
 		expect(isTransientFeedError(new Error('Status code 429'))).toBe(true);
+		expect(isTransientFeedError(new Error('Status code 419'))).toBe(true);
 	});
 
 	it('treats bot-protection 403 as retryable (keeps the row for scheduler retry)', () => {
@@ -167,6 +171,132 @@ describe('extractFeedLinks (declared-feed discovery)', () => {
 		expect(extractFeedLinks(`<html><head>${links}</head></html>`, 'https://x.test')).toHaveLength(
 			10
 		);
+	});
+});
+
+describe('extractFeedAnchorLinks (rss-index discovery)', () => {
+	it('collects standardmedia-style /rss/*.php section feeds', () => {
+		const html = `
+			<html><body>
+			<a href="https://www.standardmedia.co.ke/rss/headlines.php">headlines</a>
+			<a href="/rss/kenya.php">kenya</a>
+			<a href="https://www.standardmedia.co.ke/national/article/123">an article</a>
+			</body></html>`;
+		expect(extractFeedAnchorLinks(html, 'https://www.standardmedia.co.ke/rss')).toStrictEqual([
+			'https://www.standardmedia.co.ke/rss/headlines.php',
+			'https://www.standardmedia.co.ke/rss/kenya.php'
+		]);
+	});
+
+	it('collects generic rss/atom/feed hrefs and resolves relative urls', () => {
+		const html = `
+			<html><body>
+			<a href="/blog/feed/">blog feed</a>
+			<a href="https://x.test/atom.xml">atom</a>
+			<a href="/about">about</a>
+			</body></html>`;
+		expect(extractFeedAnchorLinks(html, 'https://x.test/')).toStrictEqual([
+			'https://x.test/blog/feed/',
+			'https://x.test/atom.xml'
+		]);
+	});
+
+	it('returns empty when no feed-looking links exist', () => {
+		expect(
+			extractFeedAnchorLinks('<html><body><a href="/about">a</a></body></html>', 'https://x.test')
+		).toStrictEqual([]);
+	});
+});
+
+describe('extractSectionPaths (nav-section discovery)', () => {
+	const origin = 'https://www.infoq.com';
+
+	it('collects single- and two-level content sections in document order', () => {
+		const html = `
+			<html><body><nav>
+			<a href="/news/">News</a>
+			<a href="https://www.infoq.com/java/">Java</a>
+			<a href="/category/tech/">Tech</a>
+			</nav></body></html>`;
+		expect(extractSectionPaths(html, origin)).toStrictEqual(['/news', '/java', '/category/tech']);
+	});
+
+	it('skips external links, articles, files, queries, and site chrome', () => {
+		const html = `
+			<html><body>
+			<a href="https://external.com/java/">x</a>
+			<a href="/news/2024/10/some-article">article</a>
+			<a href="/assets/app.css">css</a>
+			<a href="/login">login</a>
+			<a href="/search?q=x">search</a>
+			<a href="/about">about</a>
+			<a href="/feed">feed index</a>
+			<a href="/rss/java">already a feed</a>
+			<a href="mailto:a@b.c">mail</a>
+			<a href="#">empty</a>
+			<a href="/devops/">DevOps</a>
+			</body></html>`;
+		expect(extractSectionPaths(html, origin)).toStrictEqual(['/devops']);
+	});
+
+	it('prefers nav links over footer links in document order', () => {
+		const html = `
+			<html><body>
+			<a href="/privacy-notice">privacy</a>
+			<a href="/jobs">jobs</a>
+			<nav><a href="/java/">Java</a><a href="/news/">News</a></nav>
+			<a href="/about">about</a>
+			</body></html>`;
+		expect(extractSectionPaths(html, origin)).toStrictEqual(['/java', '/news']);
+	});
+
+	it('caps sections and dedupes repeats', () => {
+		const links = Array.from({ length: 15 }, (_, i) => `<a href="/s${i}/">s</a>`).join('');
+		expect(extractSectionPaths(`<html><body>${links}</body></html>`, origin)).toHaveLength(10);
+		const dupes = '<a href="/java/">a</a><a href="/java/">b</a>';
+		expect(extractSectionPaths(`<html><body>${dupes}</body></html>`, origin)).toStrictEqual([
+			'/java'
+		]);
+	});
+
+	it('returns empty for garbage origins', () => {
+		expect(extractSectionPaths('<a href="/x">x</a>', 'not a url [[[ Value')).toStrictEqual([]);
+	});
+});
+
+describe('selectPatterns (convention learning)', () => {
+	const P = ['{S}/feed', '{S}/rss', '/rss{S}', '/feed{S}'];
+
+	it('keeps only patterns that verified', () => {
+		const roundA = [
+			{ pattern: '{S}/feed', fingerprint: null },
+			{ pattern: '/rss{S}', fingerprint: 'fp1' }
+		];
+		expect(selectPatterns(roundA, P)).toStrictEqual(['/rss{S}']);
+	});
+
+	it('collapses alias patterns with identical content to the first', () => {
+		const roundA = [
+			{ pattern: '/rss{S}', fingerprint: 'same' },
+			{ pattern: '/feed{S}', fingerprint: 'same' }
+		];
+		expect(selectPatterns(roundA, P)).toStrictEqual(['/rss{S}']);
+	});
+
+	it('keeps distinct patterns with different content', () => {
+		const roundA = [
+			{ pattern: '{S}/feed', fingerprint: 'a' },
+			{ pattern: '/rss{S}', fingerprint: 'b' }
+		];
+		expect(selectPatterns(roundA, P)).toStrictEqual(['{S}/feed', '/rss{S}']);
+	});
+
+	it('falls back to all patterns when nothing verified', () => {
+		const roundA = [
+			{ pattern: '{S}/feed', fingerprint: null },
+			{ pattern: '/rss{S}', fingerprint: null }
+		];
+		expect(selectPatterns(roundA, P)).toStrictEqual(P);
 	});
 });
 

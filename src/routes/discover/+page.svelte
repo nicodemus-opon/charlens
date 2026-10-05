@@ -18,7 +18,7 @@
 	import type { DiscoverCandidate } from '$lib/server/rss/discovery.js';
 	import type { QuickVerifyResult } from '$lib/server/rss/parser.js';
 
-	let { data } = $props();
+	let { data, form } = $props();
 
 	let query = $state(data.q ?? '');
 	let collection = $state('General');
@@ -168,6 +168,14 @@
 			</Button>
 		</form>
 	</div>
+
+	{#if form?.message}
+		<Card.Root class="w-full">
+			<Card.Content>
+				<p class="text-sm text-destructive">{form.message}</p>
+			</Card.Content>
+		</Card.Root>
+	{/if}
 
 	{#if !data.rsshubOk && data.mode === 'url' && !isNavigating}
 		<Card.Root class="w-full">

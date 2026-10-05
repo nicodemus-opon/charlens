@@ -101,8 +101,8 @@ All RSS fetching/parsing lives in SvelteKit (`src/lib/server/rss/`).
 - `GET /api/feeds/refresh` (authed) reports scheduler status
   (`running`, `intervalMs`, `lastRunAt`, last counts, plus
   `lastConsolidateAt` / `consolidateMerged` / `consolidatePruned`).
-- Background tag consolidation runs inside the scheduler on its own daily
-  gate (default every 24 h, `TAG_CONSOLIDATE_*`): merges singular/plural +
+- Background tag consolidation runs inside the scheduler on its own hourly
+  gate (default every 1 h, `TAG_CONSOLIDATE_*`): merges singular/plural +
   word-order duplicate auto-tags, prunes low-value junk (enrich-source links
   only — manual/feed tags are never touched), drops orphan tags, and merges
   embedding synonyms. Disable with `TAG_CONSOLIDATE_ENABLED="0"`. The

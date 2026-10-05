@@ -1,7 +1,7 @@
 // One-off junk-tag cleanup + re-tag with the v6 extractor.
 //
 // NOTE: steady-state healing now runs automatically via the background
-// consolidate job (src/lib/server/enrich/consolidate.ts, daily gate in the
+// consolidate job (src/lib/server/enrich/consolidate.ts, hourly gate in the
 // feed scheduler). This script remains for manual backfills; its junk rules
 // are the shared implementation in tag-hygiene.ts.
 //

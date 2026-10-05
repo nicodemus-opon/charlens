@@ -173,14 +173,14 @@ export async function refreshAllStaleFeeds(
 		} catch (e) {
 			console.error('scheduled interest refresh failed', e);
 		}
-		// Daily tag consolidation: merge string/semantic dups + prune
+		// Hourly tag consolidation: merge string/semantic dups + prune
 		// low-value junk on enrich-source links only. Gated by its own
-		// interval (default 24h) so the 15-min tick stays cheap; isolated so
+		// interval (default 1h) so the 15-min tick stays cheap; isolated so
 		// consolidation never breaks refresh.
 		if (isTagConsolidateEnabled()) {
 			try {
 				// Only in scheduler context (state exists): ad-hoc callers of
-				// refreshAllStaleFeeds never trigger the daily job.
+				// refreshAllStaleFeeds never trigger the hourly job.
 				const sched = globalState.__charlensScheduler;
 				if (sched && shouldRunConsolidation(sched.lastConsolidateAt)) {
 					const con = await consolidateAllUsers();

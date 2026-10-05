@@ -498,13 +498,15 @@
 					</div>
 					{#if desk.more.length > 0}
 						<div
-							class={desk.more.length >= 4 ? 'mt-3 grid gap-3 lg:grid-cols-2' : 'mt-3 grid gap-3'}
+							class={desk.more.length >= 4
+								? 'mt-3 grid items-stretch gap-3 lg:grid-cols-2'
+								: 'mt-3 grid items-stretch gap-3'}
 						>
-							{#each desk.more as a, mi (a.id)}
+							{#each desk.more as a (a.id)}
 								{@const isSelected = selectedId === String(a.id)}
 								<div
 									class={cn(
-										'group flex min-w-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 transition-colors hover:bg-accent active:bg-accent',
+										'group flex h-full min-w-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 transition-colors hover:bg-accent active:bg-accent',
 										isSelected && 'bg-accent'
 									)}
 								>
@@ -514,14 +516,15 @@
 										aria-current={isSelected ? 'true' : undefined}
 										class="flex min-w-0 flex-1 items-center gap-3 focus-visible:outline-none"
 									>
-										{#if mi === 0 && a.imageUrl}
-											<ArticleImage
-												seed={a}
-												src={a.imageUrl}
-												alt=""
-												class="hidden h-16 w-16 shrink-0 rounded-lg sm:block"
-											/>
-										{/if}
+										<!-- Every tail card reserves the same thumb slot (generated
+										cover when the story has no image) so all cards share one
+										height and the 2-col grid stays level. -->
+										<ArticleImage
+											seed={a}
+											src={a.imageUrl}
+											alt=""
+											class="hidden h-16 w-16 shrink-0 rounded-lg sm:block"
+										/>
 										<span class="flex min-w-0 flex-1 flex-col gap-0.5">
 											<span class="truncate text-sm font-medium text-foreground">{a.title}</span>
 											<span class="truncate text-xs text-muted-foreground">{byline(a)}</span>
