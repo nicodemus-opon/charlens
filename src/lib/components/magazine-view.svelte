@@ -103,7 +103,7 @@
 
 	/** Brief stories skip their excerpt to stay scannable. */
 	function showExcerpt(a: ArticleRow) {
-		return Boolean(a.excerpt) && getStoryEmphasis(a) !== 'brief';
+		return Boolean(cleanExcerpt(a)) && getStoryEmphasis(a) !== 'brief';
 	}
 
 	function dateLabel(d: Date | string | null) {
@@ -122,6 +122,24 @@
 		const date = dateLabel(a.publishedAt);
 		if (date) parts.push(date);
 		return parts.join(', ');
+	}
+
+	/** Author + date only: used beside `kicker`, which already shows the feed. */
+	function metaLine(a: ArticleRow) {
+		const parts = [];
+		if (a.author) parts.push(a.author);
+		const date = dateLabel(a.publishedAt);
+		if (date) parts.push(date);
+		return parts.join(', ');
+	}
+
+	/** Feed excerpts sometimes ship raw URLs (e.g. trending feeds) — never render those. */
+	function cleanExcerpt(a: ArticleRow): string {
+		if (!a.excerpt) return '';
+		return a.excerpt
+			.replace(/https?:\/\/\S+/g, '')
+			.replace(/\s{2,}/g, ' ')
+			.trim();
 	}
 </script>
 
@@ -164,36 +182,30 @@
 				isSelected && 'ring-2 ring-ring'
 			)}
 		>
-			<Card.Root
-				class={cn(
-					'flex h-full min-w-0 flex-col overflow-hidden',
-					variant === 'feature' && 'sm:flex-row'
-				)}
-			>
+			<Card.Root bleed={variant === 'feature'} class="flex h-full min-w-0 flex-col overflow-hidden">
 				{#if variant === 'text'}
 					<Card.Content class="flex min-w-0 flex-1 flex-col">
 						<div class="flex min-w-0 flex-1 flex-col gap-1">
 							{@render kicker(a)}
 							<h3 class={titleClass(a, 'card')}>{a.title}</h3>
-							{#if a.excerpt}
-								<p class="line-clamp-2 text-xs text-muted-foreground">{a.excerpt}</p>
+							{#if cleanExcerpt(a)}
+								<p class="line-clamp-2 text-xs text-muted-foreground">{cleanExcerpt(a)}</p>
 							{/if}
-							<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">{byline(a)}</p>
+							<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">{metaLine(a)}</p>
 						</div>
 					</Card.Content>
 				{:else if variant === 'feature'}
-					<!-- Wide bento slot: horizontal card so the thumb stays level. -->
-					<div class="w-full shrink-0 sm:w-1/2">
-						{@render thumb(a, 'aspect-video sm:h-full')}
-					</div>
+					<!-- Wide bento slot stacks vertically: a horizontal split crops
+					text-heavy banners into an illegible slice, so the thumb stays on top. -->
+					{@render thumb(a, 'aspect-video')}
 					<Card.Content class="flex min-w-0 flex-1 flex-col">
 						<div class="flex min-w-0 flex-1 flex-col gap-1">
 							{@render kicker(a)}
 							<h3 class={titleClass(a, 'feature')}>{a.title}</h3>
-							{#if a.excerpt}
-								<p class="line-clamp-2 text-xs text-muted-foreground">{a.excerpt}</p>
+							{#if cleanExcerpt(a)}
+								<p class="line-clamp-2 text-xs text-muted-foreground">{cleanExcerpt(a)}</p>
 							{/if}
-							<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">{byline(a)}</p>
+							<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">{metaLine(a)}</p>
 						</div>
 					</Card.Content>
 				{:else}
@@ -202,10 +214,10 @@
 						<div class="flex min-w-0 flex-1 flex-col gap-1">
 							{@render kicker(a)}
 							<h3 class={titleClass(a, 'card')}>{a.title}</h3>
-							{#if showExcerpt(a) && a.excerpt}
-								<p class="line-clamp-2 text-xs text-muted-foreground">{a.excerpt}</p>
+							{#if showExcerpt(a)}
+								<p class="line-clamp-2 text-xs text-muted-foreground">{cleanExcerpt(a)}</p>
 							{/if}
-							<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">{byline(a)}</p>
+							<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">{metaLine(a)}</p>
 						</div>
 					</Card.Content>
 				{/if}
@@ -257,11 +269,11 @@
 										>
 											{lead.title}
 										</h2>
-										{#if lead.excerpt}
-											<p class="line-clamp-1 text-xs text-muted-foreground">{lead.excerpt}</p>
+										{#if cleanExcerpt(lead)}
+											<p class="line-clamp-1 text-xs text-muted-foreground">{cleanExcerpt(lead)}</p>
 										{/if}
 										<p class="mt-auto flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
-											<span class="truncate">{byline(lead)}</span>
+											<span class="truncate">{metaLine(lead)}</span>
 											{#if lead.readMinutes}
 												<span class="flex shrink-0 items-center gap-1 max-sm:hidden">
 													<Clock class="size-3" />
@@ -295,7 +307,9 @@
 											<h3 class={titleClass(a, 'card')}>
 												{a.title}
 											</h3>
-											<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">{byline(a)}</p>
+											<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">
+												{metaLine(a)}
+											</p>
 										</div>
 									</Card.Content>
 								</Card.Root>
@@ -327,11 +341,11 @@
 										>
 											{lead.title}
 										</h2>
-										{#if lead.excerpt}
-											<p class="line-clamp-1 text-xs text-muted-foreground">{lead.excerpt}</p>
+										{#if cleanExcerpt(lead)}
+											<p class="line-clamp-1 text-xs text-muted-foreground">{cleanExcerpt(lead)}</p>
 										{/if}
 										<p class="mt-auto flex items-center gap-1.5 pt-1 text-xs text-muted-foreground">
-											<span class="truncate">{byline(lead)}</span>
+											<span class="truncate">{metaLine(lead)}</span>
 											{#if lead.readMinutes}
 												<span class="flex shrink-0 items-center gap-1 max-sm:hidden">
 													<Clock class="size-3" />
@@ -368,7 +382,7 @@
 														{a.title}
 													</h3>
 													<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">
-														{byline(a)}
+														{metaLine(a)}
 													</p>
 												</div>
 											</Card.Content>
@@ -381,7 +395,7 @@
 					{/if}
 				</div>
 			{:else}
-				<!-- Cover: full-width horizontal feature, backups as an even pair. -->
+				<!-- Cover: full-width stacked feature, backups as an even pair. -->
 				<div class="group relative min-w-0">
 					<a
 						href={articleHref(lead.id)}
@@ -392,10 +406,8 @@
 							selectedId === String(lead.id) && 'ring-2 ring-ring'
 						)}
 					>
-						<Card.Root class="h-full min-w-0 overflow-hidden sm:flex-row">
-							<div class="w-full shrink-0 sm:w-1/2">
-								{@render thumb(lead, 'aspect-video sm:h-full')}
-							</div>
+						<Card.Root bleed class="h-full min-w-0 flex-col overflow-hidden">
+							{@render thumb(lead, 'aspect-video')}
 							<Card.Content class="flex min-w-0 flex-1 flex-col justify-center">
 								<div class="flex min-w-0 flex-col gap-2">
 									{@render kicker(lead)}
@@ -404,11 +416,11 @@
 									>
 										{lead.title}
 									</h2>
-									{#if lead.excerpt}
-										<p class="line-clamp-2 text-xs text-muted-foreground">{lead.excerpt}</p>
+									{#if cleanExcerpt(lead)}
+										<p class="line-clamp-2 text-xs text-muted-foreground">{cleanExcerpt(lead)}</p>
 									{/if}
 									<p class="flex items-center gap-1.5 text-xs text-muted-foreground">
-										<span class="truncate">{byline(lead)}</span>
+										<span class="truncate">{metaLine(lead)}</span>
 										{#if lead.readMinutes}
 											<span class="flex shrink-0 items-center gap-1 max-sm:hidden">
 												<Clock class="size-3" />
@@ -445,7 +457,7 @@
 													{a.title}
 												</h3>
 												<p class="mt-auto truncate pt-1 text-xs text-muted-foreground">
-													{byline(a)}
+													{metaLine(a)}
 												</p>
 											</div>
 										</Card.Content>
@@ -501,16 +513,12 @@
 						{/each}
 					</div>
 					{#if desk.more.length > 0}
-						<div
-							class={desk.more.length >= 4
-								? 'mt-3 grid items-stretch gap-3 lg:grid-cols-2'
-								: 'mt-3 grid items-stretch gap-3'}
-						>
+						<div class="mt-3 grid items-stretch gap-3 sm:grid-cols-2">
 							{#each desk.more as a (a.id)}
 								{@const isSelected = selectedId === String(a.id)}
 								<div
 									class={cn(
-										'group flex h-full min-w-0 items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 transition-colors hover:bg-accent active:bg-accent',
+										'group flex h-full min-w-0 items-center gap-2 overflow-hidden rounded-xl border border-border bg-card px-4 py-2 transition-colors hover:bg-accent active:bg-accent',
 										isSelected && 'bg-accent'
 									)}
 								>
@@ -520,16 +528,7 @@
 										aria-current={isSelected ? 'true' : undefined}
 										class="flex min-w-0 flex-1 items-center gap-3 focus-visible:outline-none"
 									>
-										<!-- Every tail card reserves the same thumb slot (generated
-										cover when the story has no image) so all cards share one
-										height and the 2-col grid stays level. -->
-										<ArticleImage
-											seed={a}
-											src={a.imageUrl}
-											alt=""
-											class="hidden h-16 w-16 shrink-0 rounded-lg sm:block"
-										/>
-										<span class="flex min-w-0 flex-1 flex-col gap-0.5">
+										<span class="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
 											<span class="truncate text-sm font-medium text-foreground">{a.title}</span>
 											<span class="truncate text-xs text-muted-foreground">{byline(a)}</span>
 										</span>
