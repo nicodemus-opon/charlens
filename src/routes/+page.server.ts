@@ -15,6 +15,7 @@ import {
 	getArticles,
 	getArticleTags,
 	getRecommendedArticles,
+	getRelatedArticles,
 	getSmartRules,
 	getTagsForArticles,
 	listTags,
@@ -118,24 +119,33 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		// higher-latency databases. selectedId is known up front, so even
 		// the selection detail + its tags join the same block.
 		const selectedId = articleId ? Number(articleId) : articles[0]?.id;
-		const [tagMap, selected, settingsResult, tags, viewPrefs, selectedTags] = await Promise.all([
-			getTagsForArticles(
-				user.id,
-				articles.map((a) => a.id)
-			),
-			selectedId ? getArticleById(user.id, selectedId) : Promise.resolve(null),
-			getUserSettings(user.id).catch((e) => {
-				console.error('settings load failed', e);
-				return {};
-			}),
-			listTags(user.id),
-			getViewPrefs(user.id).catch((e) => {
-				console.error('view prefs load failed', e);
-				return {};
-			}),
-			selectedId ? getArticleTags(user.id, selectedId) : Promise.resolve([])
-		]);
+		const [tagMap, selected, settingsResult, tags, viewPrefs, selectedTags, relatedRaw] =
+			await Promise.all([
+				getTagsForArticles(
+					user.id,
+					articles.map((a) => a.id)
+				),
+				selectedId ? getArticleById(user.id, selectedId) : Promise.resolve(null),
+				getUserSettings(user.id).catch((e) => {
+					console.error('settings load failed', e);
+					return {};
+				}),
+				listTags(user.id),
+				getViewPrefs(user.id).catch((e) => {
+					console.error('view prefs load failed', e);
+					return {};
+				}),
+				selectedId ? getArticleTags(user.id, selectedId) : Promise.resolve([]),
+				selectedId
+					? getRelatedArticles(user.id, selectedId, 6).catch((e) => {
+							console.error('related load failed', e);
+							return [];
+						})
+					: Promise.resolve([])
+			]);
 		const articlesWithTags = articles.map((a) => ({ ...a, tags: tagMap.get(a.id) ?? [] }));
+		const relatedIds = new Set([selectedId]);
+		const related = (relatedRaw ?? []).filter((r) => !relatedIds.has(r.id)).slice(0, 6);
 		// Account settings gate auto-read + telemetry (Settings → reading &
 		// Account settings gate auto-read + telemetry (Settings → reading &
 		// privacy). Pre-migration DBs fall back to the historical always-on.
@@ -164,6 +174,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 		return {
 			articles: articlesWithTags,
 			selected: selected ? { ...selected, tags: selectedTags } : null,
+			related,
 			tags,
 			filter,
 			feedId: feedId ?? null,
@@ -186,6 +197,7 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			viewId: null,
 			tagId: null,
 			query,
+			related: [],
 			viewPrefs: {},
 			viewScope: getViewScopeKey({ filter }),
 			dbDown: true

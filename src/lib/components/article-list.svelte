@@ -85,7 +85,7 @@
 {:else if view === 'grid'}
 	<div
 		class={cn(
-			'grid items-start gap-4 p-4 sm:gap-6 sm:p-5',
+			'@container grid items-start gap-4 px-list py-4 sm:gap-6 sm:py-5',
 			scrollable ? 'min-h-0 flex-1 overflow-y-auto' : 'flex-none',
 			gridClass
 		)}
@@ -136,14 +136,14 @@
 		{/each}
 	</div>
 {:else if view === 'compact'}
-	<div class={scrollable ? 'min-h-0 flex-1 overflow-y-auto' : 'flex-none'}>
+	<div class={scrollable ? '@container min-h-0 flex-1 overflow-y-auto' : '@container flex-none'}>
 		{#each articles as a (a.id)}
 			{@const isSelected = selectedId === String(a.id)}
 			<div
 				class={cn(
 					density === 'compact'
-						? 'group flex items-center gap-2 border-b border-border px-4 py-1.5 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-1'
-						: 'group flex items-center gap-2 border-b border-border px-4 py-3 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-1.5',
+						? 'group flex items-center gap-2 border-b border-border px-list py-1.5 transition-colors hover:bg-accent active:bg-accent sm:py-1'
+						: 'group flex items-center gap-2 border-b border-border px-list py-3 transition-colors hover:bg-accent active:bg-accent sm:py-1.5',
 					isSelected && 'bg-accent'
 				)}
 			>
@@ -198,8 +198,8 @@
 			<div
 				class={cn(
 					density === 'compact'
-						? 'group flex w-full items-start gap-2 border-b border-border px-4 py-2 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-2'
-						: 'group flex w-full items-start gap-2 border-b border-border px-4 py-3 transition-colors hover:bg-accent active:bg-accent sm:px-5 sm:py-4',
+						? 'group flex w-full items-start gap-2 border-b border-border px-list py-2 transition-colors hover:bg-accent active:bg-accent sm:py-2'
+						: 'group flex w-full items-start gap-2 border-b border-border px-list py-3 transition-colors hover:bg-accent active:bg-accent sm:py-4',
 					isSelected && 'bg-accent'
 				)}
 			>

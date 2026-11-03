@@ -18,7 +18,7 @@
  * whenever the caching behavior below changes (to flush old caches).
  */
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const STATIC_CACHE = `charlens-static-${VERSION}`;
 const PAGE_CACHE = `charlens-pages-${VERSION}`;
 const API_CACHE = `charlens-api-${VERSION}`;
@@ -148,6 +148,23 @@ self.addEventListener('fetch', (event) => {
 	// SvelteKit's build-version probe must stay fresh so deploys are noticed.
 	if (url.pathname === '/_app/version.json') return;
 
+	// Dev/HMR traffic must never be intercepted. The dev server (`pnpm dev`)
+	// and a production build (`docker compose up`) share an origin on local
+	// setups (both default to :7786), so a worker installed by production
+	// would otherwise keep controlling dev pages: dev client entries live at
+	// stable URLs (/@fs/…, /node_modules/…) that would be served stale from
+	// these caches, hydrating fresh SSR HTML with a mismatched route
+	// manifest and blanking the page. Let every dev request hit the network.
+	if (
+		url.pathname.startsWith('/@fs/') ||
+		url.pathname.startsWith('/@vite/') ||
+		url.pathname.startsWith('/@id/') ||
+		url.pathname.startsWith('/node_modules/') ||
+		url.pathname.startsWith('/src/') ||
+		url.pathname.startsWith('/__sveltekit')
+	)
+		return;
+
 	if (request.mode === 'navigate') {
 		event.respondWith(handleNavigation(request));
 		return;
@@ -174,7 +191,13 @@ async function handleNavigation(request) {
 		// An expired session redirects to /login — return it (the user must log
 		// in) but never store it over the last authed copy of this page.
 		const expired = response.redirected && new URL(response.url).pathname === '/login';
-		if (response.ok && !expired) {
+		// Only cache same-path responses: a redirect that landed elsewhere
+		// (e.g. a logged-in visit to /login ending on /) must not be stored
+		// under the requested URL, or offline replays would swap the pages.
+		const samePath =
+			!response.redirected ||
+			new URL(response.url).pathname === new URL(request.url).pathname;
+		if (response.ok && !expired && samePath) {
 			const cache = await caches.open(PAGE_CACHE);
 			await cache.put(request, response.clone());
 		}

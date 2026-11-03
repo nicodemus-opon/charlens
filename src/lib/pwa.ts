@@ -60,6 +60,33 @@ function registerServiceWorker(): () => void {
 /** Called once from the root layout's `onMount`; returns a teardown. */
 export function initPwa(): () => void {
 	const stopThemeSync = syncThemeColor();
+	if (!import.meta.env.PROD) {
+		// Self-heal after running a production build on this origin (local
+		// prod and `pnpm dev` share :7786): a leftover worker would keep
+		// serving stale client entries and blank freshly rendered pages,
+		// so drop it and its caches — dev never needs them.
+		if ('serviceWorker' in navigator) {
+			navigator.serviceWorker
+				.getRegistrations()
+				.then((regs) => {
+					for (const r of regs) r.unregister().catch(() => undefined);
+				})
+				.catch(() => undefined);
+		}
+		if ('caches' in window) {
+			caches
+				.keys()
+				.then((names) => {
+					for (const name of names) {
+						if (name.startsWith('charlens-')) void caches.delete(name);
+					}
+				})
+				.catch(() => undefined);
+		}
+		return () => {
+			stopThemeSync();
+		};
+	}
 	const stopServiceWorker = registerServiceWorker();
 	return () => {
 		stopThemeSync();

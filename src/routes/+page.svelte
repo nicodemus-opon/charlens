@@ -462,6 +462,16 @@
 	}
 
 	/**
+	 * Related-story links keep the current scope and swap the open article so
+	 * the reader bottom section acts as in-place recommendations.
+	 */
+	function relatedHref(id: number) {
+		const url = new URL($page.url);
+		url.searchParams.set('article', String(id));
+		return `${url.pathname}?${url.searchParams.toString()}`;
+	}
+
+	/**
 	 * Tag chips on an article open the list scoped to that tag: the previous
 	 * scope (feed/collection/smart view/search) is dropped so the tag view is
 	 * unambiguous, and the article is cleared so the list shows on its own.
@@ -572,7 +582,10 @@
 	<title>{feedTitle} charlens</title>
 </svelte:head>
 
-<div class="flex h-dvh min-h-0 min-w-0 bg-background text-foreground">
+<div
+	data-panel={panelOpen ? 'open' : 'closed'}
+	class="group/page flex app-inset-h min-h-0 min-w-0 bg-background text-foreground"
+>
 	<Resizable.PaneGroup direction="horizontal">
 		<Resizable.Pane
 			order={1}
@@ -589,7 +602,7 @@
 			<!-- paneforge forces overflow:hidden on the pane itself, so the
 			scroll container must be an inner element (same as the reader /
 			browser pane on the right). -->
-			<div class="flex min-h-0 flex-1 flex-col overflow-y-auto">
+			<div class="@container flex min-h-0 flex-1 flex-col overflow-y-auto">
 				<div
 					class="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-card/80 px-4 backdrop-blur"
 				>
@@ -690,7 +703,7 @@
 				{/if}
 			</div>
 		</Resizable.Pane>
-		<Resizable.Handle class="max-md:hidden" withHandle />
+		<Resizable.Handle class="group-data-[panel=closed]/page:hidden max-md:hidden" withHandle />
 		<Resizable.Pane order={2} minSize={30} class="relative flex min-h-0 min-w-0 flex-col">
 			{#if showReader}
 				<ReaderPane
@@ -707,6 +720,8 @@
 					onTagClick={() => (tagListRequested = true)}
 					onBack={goBack}
 					onFocusChange={setFocusMode}
+					related={data.related ?? []}
+					{relatedHref}
 				/>
 			{:else}
 				<ArticleBrowser

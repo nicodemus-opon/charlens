@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, ilike, inArray, ne, or, sql } from 'drizzle-orm';
 import { env } from '$env/dynamic/private';
 import { db } from '$lib/server/db';
 import {
@@ -1574,6 +1574,145 @@ export async function getRecommendedArticles(
 	const opened: typeof ranked = [];
 	for (const r of ranked) (r.isSaved || !r.isRead ? kept : opened).push(r);
 	return [...kept, ...opened].slice(0, limit);
+}
+
+/**
+ * Related stories for the bottom of the reader: same-user articles ranked by
+ * similarity to the open article (semantic embedding vs the article, shared
+ * tags/topics, same feed/author) plus a small freshness/unread nudge.
+ * Excludes the article itself, dismissed items and muted feeds/topics.
+ * Degrades gracefully when embeddings are missing (tags + feed + recency).
+ */
+export async function getRelatedArticles(userId: string, articleId: number, limit = 6) {
+	if (!Number.isInteger(articleId) || articleId <= 0 || limit <= 0) return [];
+	const currentRows = await db
+		.select({
+			id: article.id,
+			feedId: article.feedId,
+			author: article.author,
+			title: article.title,
+			embedding: articleEmbedding.embedding,
+			topics: articleEmbedding.topics
+		})
+		.from(article)
+		.innerJoin(feed, eq(feed.id, article.feedId))
+		.leftJoin(articleEmbedding, eq(articleEmbedding.articleId, article.id))
+		.where(and(eq(article.id, articleId), eq(feed.userId, userId)))
+		.limit(1);
+	const current = currentRows[0];
+	if (!current) return [];
+	const feedback = await getFeedbackFilter(userId);
+	const currentTagRows = await getTagsForArticles(userId, [articleId]);
+	const currentTags = new Set<string>([
+		...(currentTagRows.get(articleId) ?? []).map((t) => t.name.toLowerCase()),
+		...parseStoredStrings(current.topics).map((t) => t.toLowerCase())
+	]);
+	const currentAuthor = current.author?.trim().toLowerCase() ?? '';
+	const since = new Date(Date.now() - 30 * 86400000);
+	const baseConds = [
+		eq(subscription.userId, userId),
+		eq(feed.userId, userId),
+		or(gte(article.publishedAt, since), gte(article.createdAt, since))!,
+		ne(article.id, articleId)
+	];
+	const mutedFeedIds = [...feedback.mutedFeeds];
+	if (mutedFeedIds.length > 0) {
+		baseConds.push(sql`${article.feedId} NOT IN (${sql.join(mutedFeedIds, sql`, `)})`);
+	}
+	const candidates = await db
+		.select({
+			id: article.id,
+			feedId: article.feedId,
+			feedTitle: feed.title,
+			title: article.title,
+			link: article.link,
+			author: article.author,
+			publishedAt: article.publishedAt,
+			excerpt: article.excerpt,
+			imageUrl: article.imageUrl,
+			isRead: sql<boolean>`coalesce(${userArticleState.isRead}, false)`.mapWith(Boolean),
+			isSaved: sql<boolean>`coalesce(${userArticleState.isSaved}, false)`.mapWith(Boolean),
+			readMinutes:
+				sql<number>`greatest(1, ceil(length(regexp_replace(coalesce(${article.contentHtml}, ${article.excerpt}, ''), '<[^>]+>', '', 'g')) / 1320.0)::int)`.mapWith(
+					Number
+				)
+		})
+		.from(article)
+		.innerJoin(feed, eq(feed.id, article.feedId))
+		.innerJoin(subscription, and(eq(subscription.feedId, feed.id), eq(subscription.userId, userId)))
+		.leftJoin(
+			userArticleState,
+			and(eq(userArticleState.articleId, article.id), eq(userArticleState.userId, userId))
+		)
+		.where(and(...baseConds))
+		.orderBy(desc(sql`coalesce(${article.publishedAt}, ${article.createdAt})`), desc(article.id))
+		.limit(200);
+	if (candidates.length === 0) return [];
+	const filtered = feedback.dismissed.size
+		? candidates.filter((r) => !feedback.dismissed.has(r.id))
+		: candidates;
+	if (filtered.length === 0) return [];
+	const candidateIds = filtered.map((r) => r.id);
+	const [tagMap, embeddingRows] = await Promise.all([
+		getTagsForArticles(userId, candidateIds),
+		candidateIds.length > 0
+			? db
+					.select({
+						articleId: articleEmbedding.articleId,
+						embedding: articleEmbedding.embedding,
+						topics: articleEmbedding.topics
+					})
+					.from(articleEmbedding)
+					.where(inArray(articleEmbedding.articleId, candidateIds))
+			: Promise.resolve([])
+	]);
+	const embeddingById = new Map(embeddingRows.map((e) => [e.articleId, e]));
+	const now = Date.now();
+	const scored = filtered.map((r) => {
+		const stored = embeddingById.get(r.id);
+		const semantic = Math.max(0, similarityToInterest(stored?.embedding, current.embedding) ?? 0);
+		const rowTags = new Set<string>([
+			...(tagMap.get(r.id) ?? []).map((t) => t.name.toLowerCase()),
+			...parseStoredStrings(stored?.topics).map((t) => t.toLowerCase())
+		]);
+		let shared = 0;
+		for (const t of rowTags) {
+			if (currentTags.has(t)) {
+				if (feedback.mutedTopics.has(t)) return null;
+				shared += 1;
+			}
+		}
+		if ([...(tagMap.get(r.id) ?? [])].some((t) => feedback.mutedTopics.has(t.name.toLowerCase()))) {
+			return null;
+		}
+		const union = new Set([...currentTags, ...rowTags]).size;
+		const jaccard = union > 0 ? shared / union : 0;
+		const sameFeed = r.feedId === current.feedId ? 1 : 0;
+		const sameAuthor = currentAuthor && r.author?.trim().toLowerCase() === currentAuthor ? 1 : 0;
+		const ageDays = r.publishedAt
+			? Math.max(0, (now - new Date(r.publishedAt).getTime()) / 86400000)
+			: 30;
+		const freshness = Math.max(0, 1 - ageDays / 30);
+		const score =
+			semantic * 0.6 +
+			jaccard * 0.5 +
+			sameFeed * 0.35 +
+			sameAuthor * 0.2 +
+			freshness * 0.1 +
+			(!r.isRead ? 0.05 : 0) +
+			(r.isSaved ? 0.02 : 0);
+		return { row: r, score };
+	});
+	const ranked = scored
+		.filter((s) => s != null)
+		.sort((a, b) => b.score - a.score)
+		.slice(0, limit);
+	const top = ranked.map((s) => s.row);
+	const topTags = await getTagsForArticles(
+		userId,
+		top.map((r) => r.id)
+	);
+	return top.map((r) => ({ ...r, tags: topTags.get(r.id) ?? tagMap.get(r.id) ?? [] }));
 }
 
 /** Env-gated eval logging for the Recommended feed (off by default). */

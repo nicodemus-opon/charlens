@@ -432,7 +432,7 @@
 	</DropdownMenu.Root>
 {/snippet}
 
-<Sidebar.Root collapsible="icon">
+<Sidebar.Root variant="inset" collapsible="icon">
 	<Sidebar.Header>
 		{#if isIconRail}
 			<div class="flex flex-col items-center gap-2">

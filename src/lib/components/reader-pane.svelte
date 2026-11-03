@@ -21,6 +21,8 @@
 	} from '@lucide/svelte';
 	import { Toggle } from '$lib/components/ui/toggle/index.js';
 	import ArticleImage from '$lib/components/article-image.svelte';
+	import RecommendedArticles from '$lib/components/recommended-articles.svelte';
+	import type { ArticleRow } from '$lib/article.js';
 	import ArticleFeedbackMenu from '$lib/components/article-feedback-menu.svelte';
 	import type { TagRef } from '$lib/tags';
 	import EditTagsDialog from './edit-tags-dialog.svelte';
@@ -53,7 +55,10 @@
 		openLinksNewTab = true,
 		autoLoadFullText = false,
 		telemetryEnabled = true,
-		showFeedback = false
+		showFeedback = false,
+		related = [],
+		relatedHref,
+		onRelatedSelect
 	}: {
 		article: FullArticle | null;
 		/** True when the list is hidden (focus/reader-only view). */
@@ -73,6 +78,12 @@
 		telemetryEnabled?: boolean;
 		/** True on Recommended: header gets the "less like this" menu. */
 		showFeedback?: boolean;
+		/** Related stories shown at the bottom of the reader. */
+		related?: ArticleRow[];
+		/** Link builder for a related article (defaults to setting ?article= on the current URL). */
+		relatedHref?: (id: number) => string;
+		/** A related story was activated. */
+		onRelatedSelect?: (id: number) => void;
 	} = $props();
 
 	const linkTarget = $derived(openLinksNewTab ? '_blank' : undefined);
@@ -216,7 +227,7 @@
 </script>
 
 <div
-	class="flex min-h-0 flex-1 flex-col overflow-y-auto bg-background"
+	class="@container flex min-h-0 flex-1 flex-col overflow-y-auto bg-background"
 	role="region"
 	aria-label="Article"
 	bind:this={scrollEl}
@@ -328,8 +339,8 @@
 				>
 					<article
 						class={readerWidth === 'wide'
-							? 'mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 pt-6 pb-24 sm:px-8 sm:pt-10 sm:pb-12 md:px-10'
-							: 'mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-6 pb-24 sm:px-8 sm:pt-10 sm:pb-12 md:px-10'}
+							? 'mx-auto flex w-full article-wide flex-col gap-6 px-reader pt-6 pb-24 sm:pt-10 sm:pb-12'
+							: 'mx-auto flex w-full article-narrow flex-col gap-6 px-reader pt-6 pb-24 sm:pt-10 sm:pb-12'}
 					>
 						<h1 class="text-3xl font-bold text-balance break-words text-foreground">
 							{article.title}
@@ -410,6 +421,13 @@
 								<ExternalLink /> Read original
 							</Button>
 						</div>
+						{#if related.length > 0}
+							<RecommendedArticles
+								articles={related}
+								href={relatedHref}
+								onSelect={(id) => onRelatedSelect?.(id)}
+							/>
+						{/if}
 					</article>
 				</div>
 			{/key}

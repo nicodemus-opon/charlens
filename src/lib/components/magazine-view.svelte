@@ -228,8 +228,12 @@
 {:else}
 	{@const lead = sections.lead}
 	{@const hero = sections.hero}
-	<div class={scrollable ? 'min-h-0 flex-1 overflow-y-auto' : 'flex-none pb-20 md:pb-0'}>
-		<div class="mx-auto w-full max-w-7xl px-4 pt-6 pb-8 sm:px-5">
+	<div
+		class={scrollable
+			? '@container min-h-0 flex-1 overflow-y-auto'
+			: '@container flex-none pb-20 md:pb-0'}
+	>
+		<div class="mx-auto w-full max-w-7xl px-list pt-6 pb-8">
 			{#if hero === 'trio'}
 				<!-- Three image-led stories: even three-up hero row. -->
 				<div class="grid items-stretch gap-3 lg:grid-cols-3">

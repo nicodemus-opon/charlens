@@ -17,6 +17,7 @@
 
 	const resolved = resolveSettings(data.settings ?? {});
 	const feedback = $derived(data.feedback ?? []);
+	const apiTokens = $derived(data.apiTokens ?? []);
 
 	let theme = $state<string>(String(resolved.theme));
 	let readerFontSize = $state<string>(String(resolved.readerFontSize));
@@ -41,7 +42,13 @@
 	let savedFlash = $state<string | null>(null);
 	let busyReset = $state(false);
 	let busyImport = $state(false);
+	let busyToken = $state(false);
 	let section = $state('appearance');
+	let tokenName = $state('');
+	let tokenScope = $state('read');
+	let tokenExpiry = $state('never');
+	let newTokenPlaintext = $state<string | null>(null);
+	let tokenError = $state<string | null>(null);
 
 	const OPML_MAX_BYTES = 2 * 1024 * 1024;
 	let fileInput = $state<HTMLInputElement | null>(null);
@@ -110,6 +117,7 @@
 		{ id: 'sidebar', label: 'Sidebar' },
 		{ id: 'feeds', label: 'Feeds & links' },
 		{ id: 'privacy', label: 'Recommended & privacy' },
+		{ id: 'api', label: 'API tokens' },
 		{ id: 'data', label: 'Data' }
 	];
 
@@ -388,6 +396,127 @@
 					>
 						<Button variant="outline" size="sm" type="submit">Reset recommendations</Button>
 					</form>
+				</div>
+			</Card.Content>
+		</Card.Root>
+	{:else if section === 'api'}
+		<Card.Root>
+			<Card.Header>
+				<Card.Title>API tokens</Card.Title>
+				<Card.Description
+					>Bearer tokens for the public API (`/api/v1`). Send as `Authorization: Bearer …`. Write
+					implies read. Max 20 active tokens.</Card.Description
+				>
+			</Card.Header>
+			<Card.Content>
+				<form
+					method="POST"
+					action="?/createApiToken"
+					class="flex flex-col gap-3"
+					use:enhance={() => {
+						busyToken = true;
+						tokenError = null;
+						return async ({ result, update }) => {
+							busyToken = false;
+							if (result.type === 'success' && result.data) {
+								const data = result.data as { plaintext?: string };
+								newTokenPlaintext = typeof data.plaintext === 'string' ? data.plaintext : null;
+								tokenName = '';
+								flash('Token created');
+							} else if (result.type === 'failure') {
+								tokenError = String(result.data?.message ?? 'Could not create token');
+							}
+							await update();
+						};
+					}}
+				>
+					<div class="flex flex-col gap-1">
+						<label for="token-name" class="text-sm font-medium text-foreground">Name</label>
+						<Input
+							id="token-name"
+							name="name"
+							placeholder="e.g. phone app"
+							maxlength={60}
+							required
+							disabled={busyToken}
+							bind:value={tokenName}
+						/>
+					</div>
+					<input type="hidden" name="scope" value={tokenScope} />
+					<input type="hidden" name="expires" value={tokenExpiry} />
+					<SettingOptions
+						title="Scope"
+						description="Read lists and searches. Write marks read/saved, manages feeds and tags."
+						bind:value={tokenScope}
+						options={[
+							{ value: 'read', label: 'Read' },
+							{ value: 'write', label: 'Read + write' }
+						]}
+						onChange={(v) => (tokenScope = v)}
+					/>
+					<SettingOptions
+						title="Expiry"
+						description="Expired tokens stop working automatically."
+						bind:value={tokenExpiry}
+						options={[
+							{ value: 'never', label: 'Never' },
+							{ value: '30', label: '30 days' },
+							{ value: '90', label: '90 days' }
+						]}
+						onChange={(v) => (tokenExpiry = v)}
+					/>
+					{#if tokenError}
+						<p role="alert" class="text-xs text-destructive">{tokenError}</p>
+					{/if}
+					{#if newTokenPlaintext}
+						<div class="flex flex-col gap-1">
+							<p class="text-sm font-medium text-foreground">
+								Copy this token now — it is shown once.
+							</p>
+							<p class="text-xs break-all text-muted-foreground">{newTokenPlaintext}</p>
+							<p class="text-xs text-muted-foreground">
+								Example: `curl -H "Authorization: Bearer {newTokenPlaintext.slice(0, 8)}…"
+								{typeof location !== 'undefined' ? location.origin : ''}/api/v1/feeds`
+							</p>
+						</div>
+					{/if}
+					<div>
+						<Button
+							variant="outline"
+							size="sm"
+							type="submit"
+							disabled={busyToken || !tokenName.trim()}
+						>
+							{busyToken ? 'Creating…' : 'Create token'}
+						</Button>
+					</div>
+				</form>
+				<Separator />
+				<div class="flex flex-col gap-2 py-2">
+					<p class="text-sm font-medium text-foreground">Active tokens ({apiTokens.length})</p>
+					{#if apiTokens.length === 0}
+						<p class="text-xs text-muted-foreground">No tokens yet.</p>
+					{:else}
+						<ul class="flex flex-col gap-2">
+							{#each apiTokens as t (t.id)}
+								<li class="flex items-center gap-2">
+									<Badge variant="secondary" class="min-w-0 flex-1 justify-start">
+										<span class="min-w-0 truncate">
+											{t.name} · {t.prefix}… · {t.scopes.join(',')}
+										</span>
+									</Badge>
+									<form method="POST" action="?/revokeApiToken" use:enhance>
+										<input type="hidden" name="id" value={t.id} />
+										<Button variant="ghost" size="sm" type="submit">Revoke</Button>
+									</form>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					<p class="text-xs text-muted-foreground">
+						Full contract: <span class="font-medium">/api/v1/openapi.json</span>. See docs/api-v1.md
+						for curl examples.
+					</p>
 				</div>
 			</Card.Content>
 		</Card.Root>

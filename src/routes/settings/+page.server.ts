@@ -2,6 +2,7 @@ import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { requireUser } from '$lib/server/guard';
 import { getUserSettings, resetUserSettings, setUserSetting } from '$lib/server/settings';
+import { createApiToken, listApiTokens, revokeApiToken } from '$lib/server/api/auth';
 import { isSettingKey, sanitizeSetting } from '$lib/settings.js';
 import { OPML_MAX_BYTES, OpmlError, parseOpml } from '$lib/opml';
 import { addFeed, populateFeed } from '$lib/server/rss/refresh';
@@ -27,6 +28,20 @@ export const load: PageServerLoad = async ({ locals }) => {
 		topic: string | null;
 		createdAt: Date;
 	}[] = [];
+	let apiTokens: {
+		id: number;
+		name: string;
+		prefix: string;
+		scopes: string[];
+		lastUsedAt: Date | null;
+		expiresAt: Date | null;
+		createdAt: Date;
+	}[] = [];
+	try {
+		apiTokens = await listApiTokens(user.id);
+	} catch (e) {
+		console.error('api tokens load failed', e);
+	}
 	try {
 		const rows = await db
 			.select({
@@ -53,7 +68,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	} catch (e) {
 		console.error('feedback load failed', e);
 	}
-	return { settings, feedback };
+	return { settings, feedback, apiTokens };
 };
 
 export const actions: Actions = {
@@ -176,6 +191,45 @@ export const actions: Actions = {
 		} catch (e) {
 			console.error('removeFeedback failed', e);
 			return fail(500, { message: 'Could not remove' });
+		}
+		return { ok: true };
+	},
+	createApiToken: async ({ request, locals }) => {
+		const user = requireUser(locals);
+		const form = await request.formData();
+		const name = String(form.get('name') ?? '').trim();
+		const scope = String(form.get('scope') ?? 'read')
+			.trim()
+			.toLowerCase();
+		const expires = String(form.get('expires') ?? 'never').trim();
+		if (!name) return fail(400, { message: 'Token name is required' });
+		const scopes = scope === 'write' ? ['read', 'write'] : ['read'];
+		let expiresAt: Date | null = null;
+		if (expires === '30' || expires === '90') {
+			expiresAt = new Date(Date.now() + Number(expires) * 86400000);
+		}
+		try {
+			const created = await createApiToken(user.id, { name, scopes, expiresAt });
+			// Plaintext is shown once — it is never stored or re-readable.
+			return { ok: true, plaintext: created.plaintext, prefix: created.prefix };
+		} catch (e) {
+			console.error('createApiToken failed', e);
+			return fail(400, {
+				message: e instanceof Error ? e.message : 'Could not create token'
+			});
+		}
+	},
+	revokeApiToken: async ({ request, locals }) => {
+		const user = requireUser(locals);
+		const form = await request.formData();
+		const id = Number(form.get('id'));
+		if (!Number.isFinite(id)) return fail(400, { message: 'Invalid token' });
+		try {
+			const revoked = await revokeApiToken(user.id, id);
+			if (!revoked) return fail(404, { message: 'Not found' });
+		} catch (e) {
+			console.error('revokeApiToken failed', e);
+			return fail(500, { message: 'Could not revoke token' });
 		}
 		return { ok: true };
 	}

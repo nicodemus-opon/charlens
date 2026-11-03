@@ -83,7 +83,7 @@
 	});
 </script>
 
-<section class="flex min-h-0 flex-1 flex-col overflow-y-auto bg-background">
+<section class="@container flex min-h-0 flex-1 flex-col overflow-y-auto bg-background">
 	<div
 		class="sticky top-0 z-10 flex min-h-12 shrink-0 items-center gap-2 border-b border-border bg-background/80 px-3 backdrop-blur sm:min-h-14 sm:px-5"
 	>
